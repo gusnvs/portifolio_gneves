@@ -1,0 +1,423 @@
+@import "tailwindcss";
+
+/* =========================================================================
+   GUSTAVO NEVES — Design system
+   Direction: retro-technical premium. Warm near-black, off-white, vivid
+   orange (from the mascot logo). Grain + scanline atmosphere. Mono voice.
+   ========================================================================= */
+
+:root {
+  /* Surfaces — warm near-black */
+  --bg: #0b0a0c;
+  --bg-2: #121116;
+  --bg-3: #1a1920;
+  --bg-card: #141319;
+
+  /* Ink — warm off-white (echoes the logo cream) */
+  --fg: #f3ede1;
+  --fg-soft: #cdc7bb;
+  --muted: #908a7e;
+  --faint: #5c5850;
+
+  /* Accent — the logo orange */
+  --orange: #ff6a1a;
+  --orange-bright: #ff8a3d;
+  --orange-deep: #d8540a;
+  --cream: #f4ece0;
+
+  /* Lines & glows */
+  --line: rgba(243, 237, 225, 0.1);
+  --line-strong: rgba(243, 237, 225, 0.18);
+  --glow: rgba(255, 106, 26, 0.35);
+
+  /* Retro desktop UI (Windows-2000 look) */
+  --win-face: #d9d4c8;
+  --win-face-2: #c8c2b4;
+  --win-shadow: #6f6a5e;
+  --win-light: #fffdf7;
+  --win-title: #d8540a;
+  --win-title-2: #ff6a1a;
+
+  --radius: 14px;
+  --maxw: 1280px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-bg-3: var(--bg-3);
+  --color-bg-card: var(--bg-card);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-orange: var(--orange);
+  --color-orange-bright: var(--orange-bright);
+  --color-orange-deep: var(--orange-deep);
+  --color-cream: var(--cream);
+  --color-line: var(--line);
+
+  --font-display: var(--font-display), "Bricolage Grotesque", sans-serif;
+  --font-body: var(--font-body), "Hanken Grotesk", sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-system: "Tahoma", "Geneva", "Verdana", sans-serif;
+}
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body), sans-serif;
+  font-feature-settings: "ss01", "cv01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--orange);
+  color: #120a04;
+}
+
+/* --- Scrollbar --------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2832;
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--orange-deep);
+}
+
+/* --- Typography helpers ------------------------------------------------ */
+.font-display {
+  font-family: var(--font-display), sans-serif;
+}
+.font-mono {
+  font-family: var(--font-mono), monospace;
+}
+.font-system {
+  font-family: var(--font-system);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+/* Big fluid display type */
+.display-xxl {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  font-size: clamp(2.8rem, 11vw, 11rem);
+}
+
+/* --- Atmosphere: grain + scanlines ------------------------------------ */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  animation: grain-shift 0.6s steps(3) infinite;
+}
+
+@keyframes grain-shift {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(-5%, 3%); }
+  66% { transform: translate(3%, -4%); }
+  100% { transform: translate(0, 0); }
+}
+
+.scanlines::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  pointer-events: none;
+  opacity: 0.35;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.22) 3px,
+    transparent 4px
+  );
+}
+
+/* Soft vignette to focus the center */
+.vignette::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 0%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* --- Mascot float (fallback when no rendered video) -------------------- */
+.mascot-float {
+  animation: mascot-bob 4s ease-in-out infinite;
+}
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-14px) rotate(1.5deg); }
+}
+
+/* --- Marquee ----------------------------------------------------------- */
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+.marquee:hover {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* --- Reusable bits ----------------------------------------------------- */
+.hairline {
+  border-top: 1px solid var(--line);
+}
+
+.tag {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.link-underline {
+  background-image: linear-gradient(var(--orange), var(--orange));
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.link-underline:hover {
+  background-size: 100% 1px;
+}
+
+/* Hide native cursor when the custom cursor is active (pointer devices) */
+@media (hover: hover) and (pointer: fine) {
+  body[data-cursor="on"],
+  body[data-cursor="on"] *,
+  body[data-deskcursor="on"],
+  body[data-deskcursor="on"] * {
+    cursor: none !important;
+  }
+}
+
+/* =========================================================================
+   RETRO DESKTOP (Windows-2000 look)
+   ========================================================================= */
+
+.desktop-surface {
+  background-color: #0b0a0c;
+  font-family: var(--font-system);
+}
+
+/* Diagonal "old monitor" lines drawn on top of the wallpaper. */
+.desktop-lines {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.09) 0 2px,
+    transparent 2px 5px
+  );
+}
+
+.win {
+  background: var(--win-face);
+  padding: 3px;
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #f7f4ec,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 var(--win-light),
+    3px 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.win-title {
+  border-radius: 1px;
+}
+.win-title--active {
+  background: linear-gradient(90deg, var(--win-title), var(--win-title-2) 90%);
+}
+.win-title--inactive {
+  background: linear-gradient(90deg, #6f6a5e, #97917f);
+}
+
+.win-btn {
+  width: 19px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--win-face);
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #fff,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 #f7f4ec;
+}
+.win-btn:active {
+  box-shadow:
+    inset 1px 1px 0 0 #000,
+    inset -1px -1px 0 0 #fff;
+}
+.win-btn--close {
+  color: #5a0d0d;
+}
+
+.win-body {
+  background: #f5f1e9;
+  color: #161616;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+/* sunken inset panel (used inside apps) */
+.inset {
+  background: #fffdf8;
+  box-shadow:
+    inset 1px 1px 0 0 var(--win-shadow),
+    inset -1px -1px 0 0 #fff;
+  border: 1px solid #000;
+}
+
+/* raised retro button */
+.btn-95 {
+  background: var(--win-face);
+  color: #161616;
+  font-family: var(--font-system);
+  font-size: 13px;
+  padding: 4px 14px;
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #fff,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 #f7f4ec;
+}
+.btn-95:active {
+  box-shadow:
+    inset 1px 1px 0 0 #000,
+    inset -1px -1px 0 0 #fff;
+}
+.btn-95:disabled {
+  color: var(--win-shadow);
+  text-shadow: 1px 1px 0 #fff;
+}
+
+/* taskbar */
+.taskbar {
+  background: var(--win-face);
+  box-shadow:
+    inset 0 1px 0 0 #fff,
+    inset 0 2px 0 0 var(--win-light);
+  border-top: 1px solid #fff;
+}
+.start-btn {
+  background: var(--win-face);
+  font-weight: 800;
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #fff,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 #f7f4ec;
+}
+.start-btn[data-open="true"],
+.start-btn:active {
+  box-shadow:
+    inset 1px 1px 0 0 #000,
+    inset -1px -1px 0 0 #fff;
+}
+.task-btn {
+  background: var(--win-face);
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #fff,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 #f7f4ec;
+}
+.task-btn[data-active="true"] {
+  box-shadow:
+    inset 1px 1px 0 0 #000,
+    inset -1px -1px 0 0 #fff;
+  background: #c2bcae;
+}
+.start-menu {
+  background: var(--win-face);
+  box-shadow:
+    inset -1px -1px 0 0 #000,
+    inset 1px 1px 0 0 #fff,
+    inset -2px -2px 0 0 var(--win-shadow),
+    inset 2px 2px 0 0 #f7f4ec,
+    3px 4px 14px rgba(0, 0, 0, 0.5);
+}
+.start-menu-item:hover {
+  background: var(--win-title);
+  color: #fff;
+}
+
+/* desktop icon */
+.desk-icon {
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+.desk-icon:focus-visible,
+.desk-icon[data-selected="true"] {
+  outline: 1px dotted #fff;
+}
+.desk-icon[data-selected="true"] .desk-icon-img {
+  filter: drop-shadow(0 0 0 #ff6a1a);
+  background: rgba(255, 106, 26, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

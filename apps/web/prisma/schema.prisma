@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model GuestbookMessage {
+  id        String   @id @default(cuid())
+  name      String
+  message   String
+  createdAt DateTime @default(now())
+  hidden    Boolean  @default(false)
+  ipHash    String?
+
+  @@index([createdAt])
+}
+
+model TodoItem {
+  id        String   @id @default(cuid())
+  text      String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+model Note {
+  id        String   @id
+  title     String   @default("untitled")
+  content   String   @default("")
+  updatedAt DateTime @updatedAt
+}

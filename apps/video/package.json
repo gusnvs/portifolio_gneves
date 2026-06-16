@@ -1,0 +1,23 @@
+{
+  "name": "video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion motion-graphics for the Gustavo Neves snowman mascot.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts MascotIntro ../web/public/videos/mascot-intro.mp4 && remotion render src/index.ts MascotLoop ../web/public/videos/mascot-loop.mp4",
+    "render:intro": "remotion render src/index.ts MascotIntro ../web/public/videos/mascot-intro.mp4",
+    "render:loop": "remotion render src/index.ts MascotLoop ../web/public/videos/mascot-loop.mp4",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.477",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "^4.0.477"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
+  }
+}

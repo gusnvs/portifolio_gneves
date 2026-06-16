@@ -1,0 +1,18 @@
+{
+  "name": "projeto-portifolio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Site portfólio + sistema interativo de Gustavo Neves (landing premiada, terminal, desktop retrô).",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "lint": "pnpm --filter web lint",
+    "gen:keys": "node --experimental-strip-types scripts/gen-keys.ts",
+    "video:studio": "pnpm --filter video studio",
+    "video:render": "pnpm --filter video render"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
