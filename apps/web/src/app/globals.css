@@ -321,6 +321,23 @@ body {
   border: 1px solid #000;
 }
 
+/* Desktop app form fields — taskbar-gray instead of white */
+.win-body input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.win-body textarea,
+.win-body select {
+  background-color: var(--win-face);
+  color: #161616;
+}
+.win-body input::placeholder,
+.win-body textarea::placeholder {
+  color: #6f6a5e;
+}
+/* …but the embedded terminal keeps its dark, transparent input */
+.win-body .terminal-host input {
+  background: transparent;
+  color: var(--fg);
+}
+
 /* raised retro button */
 .btn-95 {
   background: var(--win-face);

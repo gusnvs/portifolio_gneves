@@ -35,3 +35,13 @@ model Note {
   content   String   @default("")
   updatedAt DateTime @updatedAt
 }
+
+model Score {
+  id        String   @id @default(cuid())
+  game      String
+  name      String
+  points    Int
+  createdAt DateTime @default(now())
+
+  @@index([game, points])
+}

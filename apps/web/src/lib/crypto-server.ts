@@ -1,8 +1,48 @@
 import "server-only";
-import { randomBytes, createCipheriv, publicEncrypt, pbkdf2Sync, constants } from "node:crypto";
-import { bytesToB64, type GnsecContainer, type GnsecMode } from "./gnsec";
+import {
+  randomBytes,
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  publicEncrypt,
+  pbkdf2Sync,
+  constants,
+} from "node:crypto";
+import { bytesToB64, b64ToBytes, type GnsecContainer, type GnsecMode, type GnsecWrap } from "./gnsec";
 
 const PBKDF2_ITERATIONS = 210_000;
+
+/* ----- outer server-side layer (symmetric, key derived from SESSION_SECRET) -- */
+
+function serverWrapKey(): Buffer {
+  const secret = process.env.SESSION_SECRET ?? "dev-only-insecure-session-secret-change-me-1234567890";
+  return createHash("sha256").update(`${secret}:gnsec-wrap`).digest();
+}
+
+/** Wraps an already-encrypted inner blob with the server's symmetric key. */
+export function wrapWithServerKey(inner: Buffer, innerName: string): GnsecWrap {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", serverWrapKey(), iv);
+  const enc = Buffer.concat([cipher.update(inner), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    v: 1,
+    app: "gnsec-wrap",
+    iv: bytesToB64(iv),
+    ciphertext: bytesToB64(Buffer.concat([enc, tag])),
+    meta: { innerName, size: inner.length },
+  };
+}
+
+/** Removes the outer server layer, returning the inner (still client-encrypted) blob. */
+export function unwrapWithServerKey(wrap: GnsecWrap): Buffer {
+  const all = Buffer.from(b64ToBytes(wrap.ciphertext));
+  const tag = all.subarray(all.length - 16);
+  const enc = all.subarray(0, all.length - 16);
+  const decipher = createDecipheriv("aes-256-gcm", serverWrapKey(), Buffer.from(b64ToBytes(wrap.iv)));
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(enc), decipher.final()]);
+}
 
 export function isCryptoConfigured() {
   return Boolean(process.env.RSA_PUBLIC_KEY);

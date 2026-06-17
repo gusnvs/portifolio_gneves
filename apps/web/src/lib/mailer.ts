@@ -1,6 +1,6 @@
 import "server-only";
 import nodemailer from "nodemailer";
-import type { GnsecContainer } from "./gnsec";
+import type { GnsecContainer, GnsecWrap } from "./gnsec";
 
 export function isMailConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -50,6 +50,43 @@ export async function sendEncryptedFile(opts: {
       {
         filename,
         content: Buffer.from(JSON.stringify(opts.container)),
+        contentType: "application/octet-stream",
+      },
+    ],
+  });
+}
+
+/** Sends a doubly-encrypted .gnsec2 (inner client layer + outer server layer). */
+export async function sendWrappedFile(opts: {
+  to: string;
+  wrap: GnsecWrap;
+  senderName: string;
+  message?: string;
+}) {
+  const base = opts.wrap.meta.innerName.replace(/\.gnsec$/i, "");
+  const filename = `${base}.gnsec2`;
+  const lines = [
+    `🔒🔒 ${opts.senderName} te enviou um arquivo com criptografia em dupla camada via gustavoneves.dev`,
+    "",
+    opts.message ? `Mensagem: "${opts.message}"` : "",
+    "",
+    "Como abrir:",
+    "  1. Salve o arquivo .gnsec2 anexo.",
+    "  2. Abra gustavoneves.dev → inicie o sistema → app Descriptografar.",
+    "  3. Suba o arquivo e cole sua chave privada (camada interna).",
+    "",
+    "O arquivo está criptografado em duas camadas — este email sozinho não o abre.",
+  ].filter(Boolean);
+
+  await transport().sendMail({
+    from: process.env.MAIL_FROM ?? process.env.SMTP_USER,
+    to: opts.to,
+    subject: `🔒🔒 Arquivo criptografado de ${opts.senderName}`,
+    text: lines.join("\n"),
+    attachments: [
+      {
+        filename,
+        content: Buffer.from(JSON.stringify(opts.wrap)),
         contentType: "application/octet-stream",
       },
     ],

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession, verifyAdminPassword } from "@/lib/auth";
+import { getSession, verifyAdminPassword, checkAdminUsername } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({ password: z.string().min(1).max(300) });
+const schema = z.object({
+  password: z.string().min(1).max(300),
+  username: z.string().max(100).optional(),
+});
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
@@ -18,8 +21,8 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (!(await verifyAdminPassword(body.password))) {
-    return NextResponse.json({ error: "Wrong password." }, { status: 401 });
+  if (!checkAdminUsername(body.username) || !(await verifyAdminPassword(body.password))) {
+    return NextResponse.json({ error: "Usuário ou senha incorretos." }, { status: 401 });
   }
   const session = await getSession();
   session.admin = true;

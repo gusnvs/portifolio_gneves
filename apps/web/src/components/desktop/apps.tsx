@@ -12,14 +12,17 @@ import {
 import { NotepadApp, TodoApp, TaskManagerApp } from "./apps/utility-apps";
 import { GamesApp } from "./apps/GamesApp";
 import { GuestbookApp } from "./apps/GuestbookApp";
+import { EncryptApp } from "./apps/EncryptApp";
 import { SendApp } from "./apps/SendApp";
 import { DecryptApp } from "./apps/DecryptApp";
+import { SysInfoApp } from "./apps/SysInfoApp";
+import { CloudApp } from "./apps/CloudApp";
 
 export type AppComponentProps = { onOpenApp: (id: AppId) => void };
 
 function TerminalApp({ onOpenApp }: AppComponentProps) {
   return (
-    <div className="h-full bg-bg">
+    <div className="terminal-host h-full bg-bg">
       <Terminal embedded onOpenApp={(id) => onOpenApp(id as AppId)} />
     </div>
   );
@@ -27,6 +30,7 @@ function TerminalApp({ onOpenApp }: AppComponentProps) {
 
 export const appComponents: Record<AppId, React.ComponentType<AppComponentProps>> = {
   about: AboutApp,
+  sysinfo: SysInfoApp,
   projects: ProjectsApp,
   stack: StackApp,
   social: SocialApp,
@@ -36,6 +40,8 @@ export const appComponents: Record<AppId, React.ComponentType<AppComponentProps>
   todo: TodoApp,
   taskmanager: TaskManagerApp,
   guestbook: GuestbookApp,
+  cloud: CloudApp,
+  encrypt: EncryptApp,
   send: SendApp,
   decrypt: DecryptApp,
   terminal: TerminalApp,

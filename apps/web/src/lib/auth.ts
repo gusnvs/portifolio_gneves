@@ -40,6 +40,14 @@ function constantTimeEqual(a: string, b: string) {
   return timingSafeEqual(ab, bb);
 }
 
+/** If ADMIN_USER is set, an explicitly-provided username must match it. */
+export function checkAdminUsername(username: string | undefined): boolean {
+  const expected = process.env.ADMIN_USER;
+  if (!expected) return true;
+  if (username === undefined) return true; // password-only path (terminal)
+  return constantTimeEqual(username, expected);
+}
+
 /** Verify a login attempt against ADMIN_PASSWORD_HASH (bcrypt) or ADMIN_PASSWORD (plain). */
 export async function verifyAdminPassword(input: string): Promise<boolean> {
   if (!input) return false;

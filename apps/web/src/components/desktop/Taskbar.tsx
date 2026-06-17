@@ -7,24 +7,40 @@ import { useDesktop } from "@/stores/desktop";
 import { appsMeta, type AppId } from "./registry";
 import { AppIcon } from "./AppIcon";
 
-function Clock() {
-  const [time, setTime] = useState("");
+function SystemTray() {
+  const [now, setNow] = useState<Date | null>(null);
+  const [ip, setIp] = useState("…");
+
   useEffect(() => {
-    const fmt = () =>
-      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setTime(fmt());
-    const t = setInterval(() => setTime(fmt()), 15000);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 15000);
+    fetch("/api/ip")
+      .then((r) => r.json())
+      .then((d) => setIp(d.ip || "—"))
+      .catch(() => setIp("—"));
     return () => clearInterval(t);
   }, []);
+
+  const date = now?.toLocaleDateString("pt-BR");
+  const time = now?.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
   return (
-    <div className="inset ml-1 grid place-items-center px-2 py-1 font-system text-xs text-black">
-      {time}
+    <div className="inset ml-1 flex items-center gap-2 px-2.5 py-1 font-system text-[11px] text-black">
+      <span className="hidden max-w-[120px] truncate md:inline" title={`Seu IP: ${ip}`}>
+        🌐 {ip}
+      </span>
+      <span className="hidden h-5 w-px bg-[var(--win-shadow)] md:block" />
+      <div className="text-right leading-none">
+        <div>{date ?? "—"}</div>
+        <div className="mt-0.5 font-bold">{time ?? "--:--"}</div>
+      </div>
     </div>
   );
 }
 
 const startMenuApps: AppId[] = [
   "about",
+  "sysinfo",
   "projects",
   "stack",
   "resume",
@@ -34,6 +50,8 @@ const startMenuApps: AppId[] = [
   "notepad",
   "todo",
   "taskmanager",
+  "cloud",
+  "encrypt",
   "send",
   "decrypt",
 ];
@@ -134,7 +152,7 @@ export function Taskbar() {
           ))}
         </div>
 
-        <Clock />
+        <SystemTray />
       </div>
     </div>
   );

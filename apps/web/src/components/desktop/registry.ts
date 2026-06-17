@@ -3,6 +3,7 @@
 
 export type AppId =
   | "about"
+  | "sysinfo"
   | "projects"
   | "stack"
   | "social"
@@ -12,6 +13,8 @@ export type AppId =
   | "todo"
   | "taskmanager"
   | "guestbook"
+  | "cloud"
+  | "encrypt"
   | "send"
   | "decrypt"
   | "terminal";
@@ -31,6 +34,7 @@ const ICON = "/boneco_neve";
 
 export const appsMeta: Record<AppId, AppMeta> = {
   about: { id: "about", title: "Sobre Mim", icon: "👤", img: `${ICON}/about_me.png`, w: 560, h: 460, onDesktop: true },
+  sysinfo: { id: "sysinfo", title: "Sobre o Sistema", icon: "💡", img: `${ICON}/sobre_o_sistema.png`, w: 720, h: 620, onDesktop: true },
   projects: { id: "projects", title: "Projetos", icon: "🗂️", img: `${ICON}/projects.png`, w: 720, h: 520, onDesktop: true },
   stack: { id: "stack", title: "Stack", icon: "🧩", img: `${ICON}/stack.png`, w: 560, h: 520, onDesktop: true },
   social: { id: "social", title: "Social", icon: "🌐", img: `${ICON}/social.png`, w: 460, h: 420, onDesktop: true },
@@ -40,6 +44,8 @@ export const appsMeta: Record<AppId, AppMeta> = {
   todo: { id: "todo", title: "To-Do List", icon: "✅", img: `${ICON}/to_do_list.png`, w: 440, h: 520, onDesktop: true },
   taskmanager: { id: "taskmanager", title: "Gerenciador de Tarefas", icon: "📊", w: 560, h: 440 },
   guestbook: { id: "guestbook", title: "Livro de Visitas", icon: "📖", img: `${ICON}/guestbook.png`, w: 560, h: 560, onDesktop: true },
+  cloud: { id: "cloud", title: "Meu Cloud", icon: "📁", img: `${ICON}/pastas.png`, w: 780, h: 560, onDesktop: true },
+  encrypt: { id: "encrypt", title: "Encriptar", icon: "🧊", img: `${ICON}/encriptar.png`, w: 560, h: 600, onDesktop: true },
   send: { id: "send", title: "Enviar Arquivo", icon: "🔒", img: `${ICON}/send_file.png`, w: 560, h: 600, onDesktop: true },
   decrypt: { id: "decrypt", title: "Descriptografar", icon: "🔓", img: `${ICON}/decrypt.png`, w: 560, h: 600, onDesktop: true },
   terminal: { id: "terminal", title: "Terminal", icon: "🖥️", img: `${ICON}/terminal.png`, w: 680, h: 460, onDesktop: true },

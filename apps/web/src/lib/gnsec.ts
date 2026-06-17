@@ -32,6 +32,25 @@ export function isGnsecContainer(value: unknown): value is GnsecContainer {
   return c.app === "gnsec" && typeof c.iv === "string" && typeof c.ciphertext === "string";
 }
 
+/**
+ * Outer server-side layer (.gnsec2). It wraps an already client-encrypted
+ * inner blob with a server-held symmetric key (AES-256-GCM), so the file that
+ * travels in the HTTP request / email is ciphertext on BOTH layers.
+ */
+export type GnsecWrap = {
+  v: 1;
+  app: "gnsec-wrap";
+  iv: string; // base64
+  ciphertext: string; // base64 (AES-GCM of the inner blob, tag appended)
+  meta: { innerName: string; size: number };
+};
+
+export function isGnsecWrap(value: unknown): value is GnsecWrap {
+  if (!value || typeof value !== "object") return false;
+  const c = value as Record<string, unknown>;
+  return c.app === "gnsec-wrap" && typeof c.iv === "string" && typeof c.ciphertext === "string";
+}
+
 /* --- isomorphic base64 (Node Buffer or browser btoa/atob) --------------- */
 
 export function bytesToB64(bytes: Uint8Array): string {

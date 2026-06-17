@@ -1,8 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { decryptWithPassword, decryptWithPrivateKey } from "@/lib/crypto-client";
-import { isGnsecContainer, type GnsecContainer } from "@/lib/gnsec";
+import { decryptWithPrivateKey } from "@/lib/crypto-client";
+import {
+  b64ToBytes,
+  isGnsecContainer,
+  isGnsecWrap,
+  type GnsecContainer,
+} from "@/lib/gnsec";
 import { AppScroll, AppHeading } from "./ui";
 
 function downloadBytes(bytes: Uint8Array, name: string, mime: string) {
@@ -17,10 +22,12 @@ function downloadBytes(bytes: Uint8Array, name: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
+type Loaded =
+  | { kind: "wrap"; name: string; raw: unknown }
+  | { kind: "inner"; name: string; container: GnsecContainer };
+
 export function DecryptApp() {
-  const [container, setContainer] = useState<GnsecContainer | null>(null);
-  const [method, setMethod] = useState<"password" | "key">("password");
-  const [password, setPassword] = useState("");
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [privateKey, setPrivateKey] = useState("");
   const [error, setError] = useState("");
   const [ok, setOk] = useState(false);
@@ -33,30 +40,51 @@ export function DecryptApp() {
     setOk(false);
     try {
       const parsed = JSON.parse(await f.text());
-      if (!isGnsecContainer(parsed)) {
-        setError("Esse não é um arquivo .gnsec válido.");
-        return;
-      }
-      setContainer(parsed);
-      setMethod(parsed.kdf ? "password" : "key");
+      if (isGnsecWrap(parsed)) setLoaded({ kind: "wrap", name: parsed.meta.innerName, raw: parsed });
+      else if (isGnsecContainer(parsed))
+        setLoaded({ kind: "inner", name: parsed.meta.originalName, container: parsed });
+      else setError("Arquivo não reconhecido (.gnsec ou .gnsec2).");
     } catch {
       setError("Não consegui ler o arquivo.");
     }
   };
 
   const decrypt = async () => {
-    if (!container) return;
+    if (!loaded) return;
     setError("");
     setBusy(true);
     try {
-      const bytes =
-        method === "password"
-          ? await decryptWithPassword(container, password)
-          : await decryptWithPrivateKey(container, privateKey);
+      let container: GnsecContainer;
+      if (loaded.kind === "wrap") {
+        // 1) remove the outer server layer
+        const res = await fetch("/api/unwrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(loaded.raw),
+        });
+        const d = await res.json();
+        if (!res.ok) {
+          setError(d.error ?? "Falha ao remover a camada externa.");
+          setBusy(false);
+          return;
+        }
+        const innerJson = new TextDecoder().decode(b64ToBytes(d.inner));
+        const inner = JSON.parse(innerJson);
+        if (!isGnsecContainer(inner)) {
+          setError("Camada interna inválida.");
+          setBusy(false);
+          return;
+        }
+        container = inner;
+      } else {
+        container = loaded.container;
+      }
+      // 2) remove the inner client layer with the private key
+      const bytes = await decryptWithPrivateKey(container, privateKey);
       downloadBytes(bytes, container.meta.originalName, container.meta.mime);
       setOk(true);
     } catch {
-      setError("Não consegui descriptografar — senha/chave errada, ou o arquivo está corrompido.");
+      setError("Não consegui descriptografar — chave errada ou arquivo corrompido.");
     } finally {
       setBusy(false);
     }
@@ -64,9 +92,8 @@ export function DecryptApp() {
 
   return (
     <AppScroll>
-      <AppHeading sub="descriptografe um .gnsec — roda 100% no seu navegador">Descriptografar 🔓</AppHeading>
+      <AppHeading sub="remove a camada do servidor e a do cliente">Descriptografar 🔓</AppHeading>
 
-      {/* seletor de arquivo */}
       <div
         className="inset mb-3 cursor-pointer p-4 text-center"
         onClick={() => fileRef.current?.click()}
@@ -79,82 +106,54 @@ export function DecryptApp() {
         <input
           ref={fileRef}
           type="file"
-          accept=".gnsec,application/json,application/octet-stream"
+          accept=".gnsec,.gnsec2,application/json,application/octet-stream"
           className="hidden"
           onChange={(e) => e.target.files?.[0] && loadFile(e.target.files[0])}
         />
-        {container ? (
+        {loaded ? (
           <p>
-            📦 <strong>{container.meta.originalName}</strong>{" "}
+            📦 <strong>{loaded.name}</strong>{" "}
             <span className="text-[#5a564d]">
-              ({container.mode === "vault" ? "cofre" : "senha"} · {container.meta.size} bytes)
+              ({loaded.kind === "wrap" ? "dupla camada" : "camada interna"})
             </span>
           </p>
         ) : (
-          <p className="text-[#5a564d]">Clique ou solte um arquivo .gnsec</p>
+          <p className="text-[#5a564d]">Clique ou solte um arquivo .gnsec / .gnsec2</p>
         )}
       </div>
 
-      {container && (
+      {loaded && (
         <>
-          <div className="mb-3 flex gap-2">
-            {container.kdf && (
-              <button
-                className={`btn-95 flex-1 ${method === "password" ? "!shadow-[inset_1px_1px_0_0_#000,inset_-1px_-1px_0_0_#fff]" : ""}`}
-                onClick={() => setMethod("password")}
-              >
-                🔑 Tenho a senha
-              </button>
-            )}
-            <button
-              className={`btn-95 flex-1 ${method === "key" ? "!shadow-[inset_1px_1px_0_0_#000,inset_-1px_-1px_0_0_#fff]" : ""}`}
-              onClick={() => setMethod("key")}
-            >
-              🗝️ Sou o Gustavo (chave privada)
-            </button>
-          </div>
+          <p className="mb-1 text-xs font-bold text-[#7a2c05]">Sua chave privada (camada interna):</p>
+          <textarea
+            value={privateKey}
+            onChange={(e) => setPrivateKey(e.target.value)}
+            placeholder="-----BEGIN PRIVATE KEY-----&#10;…cole sua private_key.pem aqui…&#10;-----END PRIVATE KEY-----"
+            rows={4}
+            className="inset w-full resize-none bg-white px-2 py-1.5 font-mono text-[11px] outline-none"
+          />
+          <input
+            ref={keyRef}
+            type="file"
+            accept=".pem,.txt"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) setPrivateKey(await f.text());
+            }}
+          />
+          <button className="btn-95 mt-1 text-xs" onClick={() => keyRef.current?.click()}>
+            …ou carregue um arquivo .pem
+          </button>
+          <p className="mt-1 text-[11px] text-[#5a564d]">
+            Sua chave fica neste navegador — nunca é enviada. (A camada externa é removida no
+            servidor; a interna, aqui.)
+          </p>
 
-          {method === "password" ? (
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha"
-              type="text"
-              autoComplete="off"
-              className="inset mb-3 w-full bg-white px-2 py-1.5 outline-none"
-            />
-          ) : (
-            <div className="mb-3">
-              <textarea
-                value={privateKey}
-                onChange={(e) => setPrivateKey(e.target.value)}
-                placeholder="-----BEGIN PRIVATE KEY-----&#10;…cole sua private_key.pem aqui…&#10;-----END PRIVATE KEY-----"
-                rows={4}
-                className="inset w-full resize-none bg-white px-2 py-1.5 font-mono text-[11px] outline-none"
-              />
-              <input
-                ref={keyRef}
-                type="file"
-                accept=".pem,.txt"
-                className="hidden"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setPrivateKey(await f.text());
-                }}
-              />
-              <button className="btn-95 mt-1 text-xs" onClick={() => keyRef.current?.click()}>
-                …ou carregue um arquivo .pem
-              </button>
-              <p className="mt-1 text-[11px] text-[#5a564d]">
-                Sua chave fica neste navegador — nunca é enviada.
-              </p>
-            </div>
-          )}
+          {error && <p className="mb-2 mt-2 text-sm text-[#7a2c05]">{error}</p>}
+          {ok && <p className="mb-2 mt-2 text-sm text-[#1e8a3b]">✅ Descriptografado — o download deve começar.</p>}
 
-          {error && <p className="mb-2 text-sm text-[#7a2c05]">{error}</p>}
-          {ok && <p className="mb-2 text-sm text-[#1e8a3b]">✅ Descriptografado — o download deve começar.</p>}
-
-          <button className="btn-95 w-full" onClick={decrypt} disabled={busy}>
+          <button className="btn-95 mt-2 w-full" onClick={decrypt} disabled={busy}>
             {busy ? "Descriptografando…" : "🔓 Descriptografar e baixar"}
           </button>
         </>

@@ -1,6 +1,56 @@
 /** Browser-side decryption (WebCrypto). The private key / password never leave
  *  the page. Also runs in Node 20+ via the global Web Crypto API. */
-import { b64ToBytes, type GnsecContainer } from "./gnsec";
+import { b64ToBytes, bytesToB64, type GnsecContainer } from "./gnsec";
+
+async function importPublicKey(pem: string): Promise<CryptoKey> {
+  const der = pemToDer(pem);
+  return crypto.subtle.importKey(
+    "spki",
+    der as unknown as ArrayBuffer,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["encrypt"],
+  );
+}
+
+/** Client-side encryption (inner layer) to the owner's public key. */
+export async function encryptToVault(
+  data: Uint8Array,
+  originalName: string,
+  mime: string,
+  publicKeyPem: string,
+): Promise<GnsecContainer> {
+  const pub = await importPublicKey(publicKeyPem);
+  const aesRaw = crypto.getRandomValues(new Uint8Array(32));
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    aesRaw as unknown as ArrayBuffer,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"],
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv as unknown as ArrayBuffer },
+      aesKey,
+      data as unknown as ArrayBuffer,
+    ),
+  );
+  const ownerKey = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "RSA-OAEP" }, pub, aesRaw as unknown as ArrayBuffer),
+  );
+  return {
+    v: 1,
+    app: "gnsec",
+    mode: "vault",
+    alg: { cipher: "AES-256-GCM", asym: "RSA-OAEP-SHA256" },
+    iv: bytesToB64(iv),
+    ciphertext: bytesToB64(ct),
+    ownerKey: bytesToB64(ownerKey),
+    meta: { originalName, mime, size: data.length },
+  };
+}
 
 function pemToDer(pem: string): Uint8Array {
   const body = pem

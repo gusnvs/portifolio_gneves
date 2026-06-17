@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useDesktop } from "@/stores/desktop";
 import { DesktopIcons } from "./DesktopIcons";
@@ -10,10 +10,16 @@ import { DesktopCursor } from "./DesktopCursor";
 import { appComponents } from "./apps";
 import { appsMeta, type AppId } from "./registry";
 
+type Marquee = { l: number; t: number; w: number; h: number };
+
 export function Desktop() {
   const windows = useDesktop((s) => s.windows);
   const focusedId = useDesktop((s) => s.focusedId);
   const openApp = useDesktop((s) => s.openApp);
+
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const [marquee, setMarquee] = useState<Marquee | null>(null);
 
   useEffect(() => {
     const open = new URLSearchParams(window.location.search).get("open");
@@ -22,8 +28,42 @@ export function Desktop() {
     }
   }, [openApp]);
 
+  const onPointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      e.button !== 0 ||
+      target.closest(".win, .taskbar, .desk-icon, .start-menu, button, a, input, textarea")
+    ) {
+      return;
+    }
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    setMarquee({ l: e.clientX, t: e.clientY, w: 0, h: 0 });
+    surfaceRef.current?.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = dragStart.current;
+    if (!s) return;
+    setMarquee({
+      l: Math.min(s.x, e.clientX),
+      t: Math.min(s.y, e.clientY),
+      w: Math.abs(e.clientX - s.x),
+      h: Math.abs(e.clientY - s.y),
+    });
+  };
+  const endDrag = () => {
+    dragStart.current = null;
+    setMarquee(null);
+  };
+
   return (
-    <div className="desktop-surface isolate relative h-[100svh] w-full select-none overflow-hidden">
+    <div
+      ref={surfaceRef}
+      className="desktop-surface isolate relative h-[100svh] w-full select-none overflow-hidden"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       {/* wallpaper */}
       <Image
         src="/boneco_neve/wallpaper_desktop.png"
@@ -46,10 +86,18 @@ export function Desktop() {
               GnevesOS 2000
             </p>
             <p className="mt-1 font-system text-sm text-white/90 drop-shadow-[1px_1px_3px_#000]">
-              Dê dois cliques em um ícone, ou clique em <strong>Start</strong>.
+              Dê um clique em um ícone, ou clique em <strong>Start</strong>.
             </p>
           </div>
         </div>
+      )}
+
+      {/* drag-select marquee */}
+      {marquee && (marquee.w > 2 || marquee.h > 2) && (
+        <div
+          className="pointer-events-none absolute z-[5] border border-orange/80 bg-orange/15"
+          style={{ left: marquee.l, top: marquee.t, width: marquee.w, height: marquee.h }}
+        />
       )}
 
       {windows.map((w) => {
