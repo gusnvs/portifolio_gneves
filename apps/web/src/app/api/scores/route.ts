@@ -5,7 +5,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
-const GAMES = ["snake", "memory", "simon"] as const;
+const GAMES = ["snake", "memory", "simon", "runner"] as const;
 
 const postSchema = z.object({
   game: z.enum(GAMES),

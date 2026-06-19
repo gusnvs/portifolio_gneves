@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export type GameId = "snake" | "memory" | "simon";
+export type GameId = "snake" | "memory" | "simon" | "runner";
 
 export function Leaderboard({ game, refreshKey }: { game: GameId; refreshKey?: number }) {
   const [scores, setScores] = useState<{ name: string; points: number }[]>([]);
