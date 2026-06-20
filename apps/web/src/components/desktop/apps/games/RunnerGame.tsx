@@ -20,7 +20,8 @@ const GRAVITY = 2600;
 const JUMP_V = -820;
 
 const BASE_SPEED = 240;
-const MAX_SPEED = 560;
+const MAX_SPEED = 720;
+const ENERGY_STEP = 0.16; // each energy permanently multiplies speed (cumulative)
 
 const ASSET = (n: string) => `/boneco_neve/runner/${n}`;
 const SOURCES = {
@@ -57,9 +58,10 @@ export function RunnerGame() {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"idle" | "running" | "over">("idle");
   const [score, setScore] = useState(0);
-  const [boost, setBoost] = useState(false);
+  const [level, setLevel] = useState(0);
 
   const raf = useRef<number>(0);
+  const levelShown = useRef(0);
   const game = useRef({
     y: GROUND_Y,
     vy: 0,
@@ -71,7 +73,8 @@ export function RunnerGame() {
     dist: 0,
     scoreF: 0,
     energyBonus: 0,
-    boostT: 0,
+    speedMult: 1,
+    energyLevel: 0,
     obstacles: [] as Obstacle[],
     powers: [] as Power[],
     spawnT: 0.8,
@@ -113,7 +116,8 @@ export function RunnerGame() {
       dist: 0,
       scoreF: 0,
       energyBonus: 0,
-      boostT: 0,
+      speedMult: 1,
+      energyLevel: 0,
       obstacles: [],
       powers: [],
       spawnT: 0.9,
@@ -121,7 +125,7 @@ export function RunnerGame() {
       over: false,
     };
     setScore(0);
-    setBoost(false);
+    setLevel(0);
   };
 
   const jump = useCallback(() => {
@@ -140,18 +144,24 @@ export function RunnerGame() {
     if (dt > 0.05) dt = 0.05; // clamp
     const I = imgs.current;
 
-    // speed ramps with distance; energy boost multiplies
-    const ramp = Math.min(MAX_SPEED, BASE_SPEED + g.dist / 90);
-    if (g.boostT > 0) g.boostT -= dt;
-    const boosting = g.boostT > 0;
-    g.speed = ramp * (boosting ? 1.55 : 1);
-    if (boosting !== boost) setBoost(boosting);
+    // speed = distance ramp × permanent cumulative energy multiplier
+    const ramp = BASE_SPEED + g.dist / 90;
+    g.speed = Math.min(MAX_SPEED, ramp * g.speedMult);
+    if (g.energyLevel !== levelShown.current) {
+      levelShown.current = g.energyLevel;
+      setLevel(g.energyLevel);
+    }
 
     const move = g.speed * dt;
     g.dist += move;
 
-    // physics
-    g.vy += GRAVITY * dt;
+    // physics — ducking while airborne = fast-fall (cancel the rise + heavy gravity)
+    if (!g.onGround && g.ducking) {
+      if (g.vy < 0) g.vy = 0;
+      g.vy += GRAVITY * 2.8 * dt;
+    } else {
+      g.vy += GRAVITY * dt;
+    }
     g.y += g.vy * dt;
     if (g.y >= GROUND_Y) {
       g.y = GROUND_Y;
@@ -179,9 +189,9 @@ export function RunnerGame() {
         g.obstacles.push({
           kind: "fire",
           x: W + 20,
-          w: big ? 40 : 28,
-          h: big ? 46 : 36,
-          y: GROUND_Y,
+          w: big ? 56 : 42,
+          h: big ? 66 : 52,
+          y: GROUND_Y + 12,
         });
       }
       const gapPx = 270 + Math.random() * 260;
@@ -191,7 +201,7 @@ export function RunnerGame() {
     // spawn energy occasionally
     g.powerT -= dt;
     if (g.powerT <= 0) {
-      g.powers.push({ x: W + 30, y: GROUND_Y - 64, w: 26, h: 42 });
+      g.powers.push({ x: W + 30, y: GROUND_Y - 72, w: 38, h: 58 });
       g.powerT = 6 + Math.random() * 6;
     }
 
@@ -234,8 +244,9 @@ export function RunnerGame() {
     // energy pickup
     g.powers = g.powers.filter((p) => {
       if (rectsHit(hbx, hby, hbw, hbh, p.x, p.y, p.w, p.h)) {
-        g.boostT = 4;
-        g.energyBonus += 25;
+        g.energyLevel += 1;
+        g.speedMult += ENERGY_STEP; // permanent + cumulative
+        g.energyBonus += 30;
         return false;
       }
       return true;
@@ -284,13 +295,15 @@ export function RunnerGame() {
 
     // snowman
     let sprite = g.frame ? I.run2 : I.run1;
-    if (!g.onGround) sprite = I.jump;
+    if (!g.onGround) sprite = g.ducking ? I.duck : I.jump;
     else if (g.ducking) sprite = I.duck;
     if (sprite) {
-      if (boosting) {
+      // speed trail — one faint after-image per energy collected, fading back
+      const ghosts = Math.min(g.energyLevel, 6);
+      for (let k = ghosts; k >= 1; k--) {
         ctx.save();
-        ctx.globalAlpha = 0.25;
-        ctx.drawImage(sprite, sx - 10, sy, sw, sh);
+        ctx.globalAlpha = 0.34 * Math.pow(0.62, k - 1);
+        ctx.drawImage(sprite, sx - k * 12, sy + 1, sw, sh);
         ctx.restore();
       }
       ctx.drawImage(sprite, sx, sy, sw, sh);
@@ -350,7 +363,7 @@ export function RunnerGame() {
       <div className="flex w-full max-w-[520px] items-center justify-between">
         <span className="font-bold">⛄ Boneco Runner</span>
         <span className="text-[#7a2c05]">
-          {boost && <span className="mr-2 text-[#1e8a3b]">⚡ TURBO</span>}Pontos {score}
+          {level > 0 && <span className="mr-2 text-[#1e8a3b]">⚡ x{level}</span>}Pontos {score}
         </span>
       </div>
 
@@ -370,26 +383,35 @@ export function RunnerGame() {
           style={{ imageRendering: "pixelated" }}
         />
 
-        {status !== "running" && (
+        {status === "idle" && (
           <div className="absolute inset-0 grid place-items-center bg-black/55 p-3 text-center text-white">
-            {status === "over" ? (
-              <GameOver game="runner" points={score} onRestart={start} />
-            ) : (
-              <div>
-                <button className="btn-95 text-black" onClick={start} disabled={!ready}>
-                  {ready ? "Começar" : "Carregando…"}
-                </button>
-                <p className="mt-2 text-[11px] text-white/80">
-                  Espaço/↑ pula · ↓ agacha · pegue o ⚡ energético
-                </p>
-              </div>
-            )}
+            <div>
+              <button className="btn-95 text-black" onClick={start} disabled={!ready}>
+                {ready ? "Começar" : "Carregando…"}
+              </button>
+              <p className="mt-2 text-[11px] text-white/80">
+                Espaço/↑ pula · ↓ agacha · pegue o ⚡ energético
+              </p>
+            </div>
+          </div>
+        )}
+
+        {status === "over" && (
+          <div className="absolute inset-0 grid place-items-center bg-black/65">
+            <span className="font-display text-4xl font-extrabold uppercase tracking-tight text-white drop-shadow-[3px_3px_0_#db4f06] sm:text-6xl">
+              Game Over
+            </span>
           </div>
         )}
       </div>
-      <p className="text-[11px] text-[#5a564d]">
-        Pule os foguinhos, agache nas nuvens e pegue energéticos pra acelerar.
-      </p>
+
+      {status === "over" ? (
+        <GameOver game="runner" points={score} onRestart={start} />
+      ) : (
+        <p className="text-[11px] text-[#5a564d]">
+          Pule os foguinhos, agache nas nuvens e pegue energéticos pra acelerar.
+        </p>
+      )}
     </div>
   );
 }

@@ -5,9 +5,11 @@ import { AppScroll, AppHeading } from "./ui";
 import { SnakeGame } from "./games/SnakeGame";
 import { MemoryGame } from "./games/MemoryGame";
 import { SimonGame } from "./games/SimonGame";
+import { RunnerGame } from "./games/RunnerGame";
 import { Leaderboard, type GameId } from "./games/Leaderboard";
 
 const GAMES: { id: GameId; title: string; icon: string; desc: string }[] = [
+  { id: "runner", title: "Boneco Runner", icon: "⛄", desc: "Corra, pule e agache — estilo dino." },
   { id: "snake", title: "Cobra do Boneco", icon: "🐍", desc: "Clássico snake gelado." },
   { id: "memory", title: "Memória", icon: "🧠", desc: "Ache os pares." },
   { id: "simon", title: "Simon Says", icon: "🎵", desc: "Repita a sequência." },
@@ -25,6 +27,7 @@ export function GamesApp() {
           </button>
         </div>
         <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-4">
+          {active === "runner" && <RunnerGame />}
           {active === "snake" && <SnakeGame />}
           {active === "memory" && <MemoryGame />}
           {active === "simon" && <SimonGame />}
@@ -55,7 +58,7 @@ export function GamesApp() {
 
       <div className="mt-4">
         <p className="mb-1 font-bold text-[#7a2c05]">Top jogadores</p>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           {GAMES.map((g) => (
             <div key={g.id}>
               <p className="mb-1 text-center text-xs font-bold">
