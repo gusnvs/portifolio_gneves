@@ -36,6 +36,13 @@ const SOURCES = {
   ground: ASSET("ground.png"),
 };
 
+/* tight content box of each 1024² sprite (measured) — used to crop away the
+   transparent padding so sprites draw at their real aspect ratio (no squashing) */
+const CONTENT = {
+  cloud: { x: 0, y: 127, w: 1024, h: 795 }, // ar 1.288
+  energy: { x: 356, y: 264, w: 310, h: 555 }, // ar 0.559
+};
+
 type Obstacle = { kind: "fire" | "cloud"; x: number; w: number; h: number; y: number };
 type Power = { x: number; y: number; w: number; h: number };
 
@@ -183,7 +190,7 @@ export function RunnerGame() {
     if (g.spawnT <= 0) {
       const highChance = Math.random() < 0.4;
       if (highChance) {
-        g.obstacles.push({ kind: "cloud", x: W + 20, w: 58, h: 34, y: 70 });
+        g.obstacles.push({ kind: "cloud", x: W + 20, w: 60, h: 47, y: 122 });
       } else {
         const big = Math.random() < 0.3;
         g.obstacles.push({
@@ -201,7 +208,7 @@ export function RunnerGame() {
     // spawn energy occasionally
     g.powerT -= dt;
     if (g.powerT <= 0) {
-      g.powers.push({ x: W + 30, y: GROUND_Y - 72, w: 38, h: 58 });
+      g.powers.push({ x: W + 30, y: GROUND_Y - 58, w: 25, h: 44 });
       g.powerT = 6 + Math.random() * 6;
     }
 
@@ -283,14 +290,20 @@ export function RunnerGame() {
       ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
     }
 
-    // powers
+    // powers (crop to content so the can keeps its real proportions)
     const en = I.energy;
-    for (const p of g.powers) if (en) ctx.drawImage(en, p.x, p.y, p.w, p.h);
+    const ec = CONTENT.energy;
+    for (const p of g.powers)
+      if (en) ctx.drawImage(en, ec.x, ec.y, ec.w, ec.h, p.x, p.y, p.w, p.h);
 
     // obstacles
     for (const o of g.obstacles) {
-      const im = o.kind === "fire" ? I.fire : I.cloud;
-      if (im) ctx.drawImage(im, o.x, o.y - o.h, o.w, o.h);
+      if (o.kind === "fire") {
+        if (I.fire) ctx.drawImage(I.fire, o.x, o.y - o.h, o.w, o.h);
+      } else {
+        const cc = CONTENT.cloud;
+        if (I.cloud) ctx.drawImage(I.cloud, cc.x, cc.y, cc.w, cc.h, o.x, o.y - o.h, o.w, o.h);
+      }
     }
 
     // snowman
