@@ -13,8 +13,13 @@ const RUN_W = 74;
 const RUN_H = 74;
 const JUMP_W = 74;
 const JUMP_H = 80;
-const DUCK_W = 88;
-const DUCK_H = 52;
+// duck sprite content is ~square; the box must stay square (1:1) so the 1024²
+// image scales uniformly and the snowman isn't stretched/flattened.
+// Kept near the run size so the ducking snowman reads as the SAME character
+// (just lower) instead of a smaller one — the short "duck" hitbox is handled
+// separately in the collision code so he still slips under clouds.
+const DUCK_W = 68;
+const DUCK_H = 68;
 
 const GRAVITY = 2600;
 const JUMP_V = -820;
@@ -28,7 +33,8 @@ const SOURCES = {
   run1: ASSET("snowman_run1.png"),
   run2: ASSET("snowman_run2.png"),
   jump: ASSET("snowman_jump.png"),
-  duck: ASSET("snowman_duck.png"),
+  duck1: ASSET("snowman_duck1.png"),
+  duck2: ASSET("snowman_duck2.png"),
   fire: ASSET("fire.png"),
   cloud: ASSET("cloud.png"),
   energy: ASSET("energy.png"),
@@ -176,8 +182,8 @@ export function RunnerGame() {
       g.onGround = true;
     }
 
-    // run frame anim
-    if (g.onGround && !g.ducking) {
+    // run frame anim — also cycles while ducking so the duck legs keep moving
+    if (g.onGround) {
       g.frameT += dt;
       if (g.frameT > 0.1) {
         g.frameT = 0;
@@ -223,12 +229,13 @@ export function RunnerGame() {
     const sh = g.ducking ? DUCK_H : g.onGround ? RUN_H : JUMP_H;
     const sx = SM_X;
     const sy = g.y - sh;
-    // forgiving hitbox
+    // forgiving hitbox. When ducking, the snowman is drawn near full size but
+    // we only collide with his lower body, so he still slips under the clouds.
     const pad = 0.18;
-    const hbx = sx + sw * pad;
-    const hby = sy + sh * pad;
-    const hbw = sw * (1 - pad * 2);
-    const hbh = sh * (1 - pad * 2);
+    const hbx = g.ducking ? sx + sw * 0.22 : sx + sw * pad;
+    const hbw = g.ducking ? sw * 0.56 : sw * (1 - pad * 2);
+    const hby = g.ducking ? g.y - sh * 0.6 : sy + sh * pad;
+    const hbh = g.ducking ? sh * 0.6 - 4 : sh * (1 - pad * 2);
 
     // collisions
     for (const o of g.obstacles) {
@@ -308,8 +315,9 @@ export function RunnerGame() {
 
     // snowman
     let sprite = g.frame ? I.run2 : I.run1;
-    if (!g.onGround) sprite = g.ducking ? I.duck : I.jump;
-    else if (g.ducking) sprite = I.duck;
+    const duckSprite = g.frame ? I.duck2 : I.duck1;
+    if (!g.onGround) sprite = g.ducking ? duckSprite : I.jump;
+    else if (g.ducking) sprite = duckSprite;
     if (sprite) {
       // speed trail — one faint after-image per energy collected, fading back
       const ghosts = Math.min(g.energyLevel, 6);
