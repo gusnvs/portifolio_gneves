@@ -5,8 +5,8 @@ import { GameOver } from "./Leaderboard";
 
 /* logical canvas resolution (scaled up, rendered pixelated) */
 const W = 600;
-const H = 200;
-const GROUND_Y = 168;
+const H = 240; // taller than the play area so the snowman's head/hat never clips at jump apex
+const GROUND_Y = 208;
 
 const SM_X = 60;
 const RUN_W = 74;
@@ -20,6 +20,7 @@ const JUMP_H = 80;
 // separately in the collision code so he still slips under clouds.
 const DUCK_W = 68;
 const DUCK_H = 68;
+const DUCK_DROP = 7; // draw the duck a touch lower so feet sit on the ground and the hat clears the cloud
 
 const GRAVITY = 2600;
 const JUMP_V = -820;
@@ -196,7 +197,7 @@ export function RunnerGame() {
     if (g.spawnT <= 0) {
       const highChance = Math.random() < 0.4;
       if (highChance) {
-        g.obstacles.push({ kind: "cloud", x: W + 20, w: 60, h: 47, y: 122 });
+        g.obstacles.push({ kind: "cloud", x: W + 20, w: 60, h: 47, y: GROUND_Y - 56 });
       } else {
         const big = Math.random() < 0.3;
         g.obstacles.push({
@@ -228,14 +229,15 @@ export function RunnerGame() {
     const sw = g.ducking ? DUCK_W : g.onGround ? RUN_W : JUMP_W;
     const sh = g.ducking ? DUCK_H : g.onGround ? RUN_H : JUMP_H;
     const sx = SM_X;
-    const sy = g.y - sh;
+    const sy = g.y - sh + (g.ducking ? DUCK_DROP : 0);
     // forgiving hitbox. When ducking, the snowman is drawn near full size but
     // we only collide with his lower body, so he still slips under the clouds.
+    // When running, the top reaches up to the head so head-height clouds register.
     const pad = 0.18;
     const hbx = g.ducking ? sx + sw * 0.22 : sx + sw * pad;
     const hbw = g.ducking ? sw * 0.56 : sw * (1 - pad * 2);
-    const hby = g.ducking ? g.y - sh * 0.6 : sy + sh * pad;
-    const hbh = g.ducking ? sh * 0.6 - 4 : sh * (1 - pad * 2);
+    const hby = g.ducking ? sy + sh * 0.45 : sy + sh * 0.08;
+    const hbh = g.ducking ? sh * 0.4 : sh * 0.8;
 
     // collisions
     for (const o of g.obstacles) {
