@@ -1,5 +1,5 @@
-import { Landing } from "@/components/landing/Landing";
+import { Snowmania } from "@/components/snowmania/Snowmania";
 
 export default function HomePage() {
-  return <Landing />;
+  return <Snowmania />;
 }
