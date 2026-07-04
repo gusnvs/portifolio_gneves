@@ -8,6 +8,7 @@ import { Stage } from "./Stage";
 import { Header } from "./ui/Header";
 import { ProgressDots } from "./ui/ProgressDots";
 import { Preloader } from "./ui/Preloader";
+import { MouseGlow } from "./ui/MouseGlow";
 import {
   IntroSection,
   FallSection,
@@ -90,6 +91,7 @@ export function Snowmania() {
           className="fixed inset-0 z-0"
           style={{ backgroundColor: BG_STOPS[0][1] }}
         />
+        <MouseGlow />
         <Stage />
         <Header />
         <ProgressDots />

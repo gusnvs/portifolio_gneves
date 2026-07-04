@@ -648,20 +648,47 @@ body {
   text-transform: uppercase;
 }
 .mania-scroll-arrow {
-  width: 26px;
+  width: 34px;
   height: auto;
-  animation: mania-arrow-bob 1.3s ease-in-out infinite;
+  animation: mania-arrow-drop 1.4s ease-in-out infinite;
 }
-@keyframes mania-arrow-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.9;
+/* a seta desce apontando pra baixo em loop — nunca desaparece por completo */
+@keyframes mania-arrow-drop {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0.35;
   }
-  55% {
-    transform: translateY(10px);
+  35% {
     opacity: 1;
   }
+  70% {
+    transform: translateY(11px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(15px);
+    opacity: 0.35;
+  }
+}
+
+/* mancha laranja sutil que acompanha o mouse (só enquanto ele se move) */
+.mania-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 560px;
+  height: 560px;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(255, 106, 26, 0.42),
+    rgba(255, 106, 26, 0.16) 45%,
+    transparent 72%
+  );
+  filter: blur(26px);
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -676,3 +703,6 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* nudge */
+

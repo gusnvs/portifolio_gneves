@@ -56,6 +56,14 @@ interface Slot {
   px: number;
   py: number;
   pangle: number;
+  /** mola do inflar (oscila em volta de 1): valor atual e velocidade. */
+  inflate: number;
+  inflateV: number;
+  /** combo de cliques rápidos — cada clique seguido bombeia mais forte. */
+  combo: number;
+  lastClickAt: number;
+  /** relógio (s) do próximo pulo espontâneo. */
+  nextJumpAt: number;
 }
 
 /**
@@ -108,6 +116,11 @@ export function WallScene() {
         px: 0,
         py: 0,
         pangle: 0,
+        inflate: 1,
+        inflateV: 0,
+        combo: 0,
+        lastClickAt: 0,
+        nextJumpAt: 0,
       });
     }
     return { slots: slotsOut, materials: matsOut };
@@ -120,6 +133,8 @@ export function WallScene() {
     physAcc: 0,
     seq: 1,
     groupOffset: 0,
+    /** relógio da cena (s), espelhado do clock do three a cada frame. */
+    now: 0,
     statics: [] as Matter.Body[],
     drag: null as null | {
       constraint: Matter.Constraint;
@@ -198,6 +213,17 @@ export function WallScene() {
       });
       Matter.World.add(engine.world, constraint);
       s.drag = { constraint, body: hit, pointerId: e.pointerId };
+      // cada clique é uma bombada: cliques em sequência (combo) batem cada
+      // vez mais forte — o inchaço cresce E o rebote desincha abaixo do
+      // tamanho normal, cada vez mais fundo (só visual, colisor fixo)
+      const slot = slots.find((sl) => sl.body === hit);
+      if (slot) {
+        slot.combo =
+          s.now - slot.lastClickAt < 1.1 ? Math.min(slot.combo + 1, 8) : 0;
+        slot.lastClickAt = s.now;
+        slot.inflateV += 3.4 + slot.combo * 1.15;
+        slot.bornAt = s.now;
+      }
       if (root) root.style.cursor = "grabbing";
     };
 
@@ -250,6 +276,7 @@ export function WallScene() {
     const unit = Math.min(vh, vw * 1.15);
     const s = sim.current;
     const now = state.clock.elapsedTime;
+    s.now = now;
 
     // a pilha inteira sobe junto com o scroll e sai de cena
     const scrollPx = (scrollVh / 100) * vh;
@@ -290,6 +317,12 @@ export function WallScene() {
           }
           if (oldest) {
             // estoura: remove a física na hora, o pop é só visual
+            // (incorpora o inflar atual pro tamanho não saltar; nunca
+            // estoura a partir de um murcho minúsculo)
+            oldest.h *= Math.max(oldest.inflate, 0.7);
+            oldest.inflate = 1;
+            oldest.inflateV = 0;
+            oldest.combo = 0;
             Matter.World.remove(engine.world, oldest.body!);
             oldest.body = null;
             oldest.popAt = now;
@@ -326,6 +359,11 @@ export function WallScene() {
           sl.bornAt = now;
           sl.seq = s.seq++;
           sl.h = h;
+          sl.inflate = 1;
+          sl.inflateV = 0;
+          sl.combo = 0;
+          sl.lastClickAt = 0;
+          sl.nextJumpAt = now + 4 + rnd() * 12;
           materials[free].opacity = 1;
         }
       }
@@ -343,11 +381,48 @@ export function WallScene() {
         sl.px = body.position.x;
         sl.py = body.position.y;
         sl.pangle = body.angle;
+
+        // mola quase sem amortecimento oscilando em volta de 1: bombada
+        // sobe alto, rebote afunda abaixo do normal, ciclo de ~350ms —
+        // e cliques em combo amplificam o vai-e-vem
+        const springDt = Math.min(dt, 0.033);
+        const acc = 330 * (1 - sl.inflate) - 4 * sl.inflateV;
+        sl.inflateV += acc * springDt;
+        sl.inflate += sl.inflateV * springDt;
+        if (sl.inflate < 0.15) {
+          sl.inflate = 0.15;
+          if (sl.inflateV < 0) sl.inflateV = 0;
+        } else if (sl.inflate > 2.9) {
+          sl.inflate = 2.9;
+          if (sl.inflateV > 0) sl.inflateV = 0;
+        }
+
+        // pulo espontâneo de vez em quando (só quando assentado)
+        if (sl.nextJumpAt === 0) {
+          sl.nextJumpAt = now + 4 + s.rand() * 12;
+        } else if (
+          now >= sl.nextJumpAt &&
+          s.drag?.body !== body &&
+          body.speed < 1
+        ) {
+          Matter.Sleeping.set(body, false);
+          Matter.Body.setVelocity(body, {
+            x: (s.rand() - 0.5) * 5,
+            y: -(6.5 + s.rand() * 4.5),
+          });
+          Matter.Body.setAngularVelocity(body, (s.rand() - 0.5) * 0.24);
+          sl.nextJumpAt = now + 5 + s.rand() * 15;
+        }
+
         mesh.visible = true;
         materials[i].opacity = 1;
         mesh.position.set(sl.px - vw / 2, vh / 2 - sl.py, (i % 10) * 0.5);
         mesh.rotation.z = -body.angle;
-        mesh.scale.set(sl.h * sl.aspect, sl.h, 1);
+        mesh.scale.set(
+          sl.h * sl.aspect * sl.inflate,
+          sl.h * sl.inflate,
+          1,
+        );
         continue;
       }
 
