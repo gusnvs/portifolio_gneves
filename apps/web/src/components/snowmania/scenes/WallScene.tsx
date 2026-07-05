@@ -194,7 +194,7 @@ export function WallScene() {
         return;
       }
       const { scrollVh } = useMania.getState();
-      if (scrollVh > 220) return;
+      if (scrollVh > 130) return;
       const point = toMatter(e);
       const hit = Matter.Query.point(liveBodies(), point)[0];
       if (!hit) return;
@@ -235,7 +235,7 @@ export function WallScene() {
       }
       if (e.pointerType !== "mouse" || !root) return;
       const { scrollVh } = useMania.getState();
-      if (scrollVh > 220) {
+      if (scrollVh > 130) {
         if (root.style.cursor === "grab") root.style.cursor = "";
         return;
       }
@@ -278,13 +278,12 @@ export function WallScene() {
     const now = state.clock.elapsedTime;
     s.now = now;
 
-    // a pilha inteira sobe junto com o scroll e sai de cena
-    const scrollPx = (scrollVh / 100) * vh;
-    const offset = scrollPx * 1.15;
-    g.position.y = offset;
-    s.groupOffset = offset;
+    // a pilha fica PARADA — quem sobe é o plano da próxima seção,
+    // cobrindo os bonecos por cima (igual ao site de referência)
+    g.position.y = 0;
+    s.groupOffset = 0;
 
-    const active = scrollVh < 300;
+    const active = scrollVh < 260;
     g.visible = active;
     if (!active) return;
 
@@ -300,7 +299,7 @@ export function WallScene() {
     // chuva calma: enche rápido até o limite (~8-10), depois goteja — e só
     // estoura um antigo (bolha) quando ele já viveu MIN_LIFE segundos
     const cap = Math.max(6, Math.min(10, Math.round((vw * vh) / 125000)));
-    if (ready && scrollVh < 150) {
+    if (ready && scrollVh < 110) {
       const alive = slots.filter((sl) => sl.body);
       const interval = alive.length < cap * 0.7 ? SPAWN_FAST : SPAWN_SLOW;
       s.spawnAcc += dt;

@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMania } from "../store";
+import { SECTION_START_VH } from "../config";
 import { clamp01, mulberry32 } from "./utils";
 
 /** Textura procedural de círculo suave (estrelas/vagalumes). */
@@ -80,7 +81,7 @@ export function NightScene() {
     const { scrollVh } = useMania.getState();
     const g = group.current;
     if (!g) return;
-    const nightP = clamp01((scrollVh - 600) / 90);
+    const nightP = clamp01((scrollVh - (SECTION_START_VH.night - 80)) / 90);
     g.visible = nightP > 0.01;
     if (!g.visible) return;
 
@@ -104,7 +105,7 @@ export function NightScene() {
 
   return (
     <group ref={group} visible={false}>
-      <points>
+      <points renderOrder={32}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[starsA, 3]} />
         </bufferGeometry>
@@ -120,7 +121,7 @@ export function NightScene() {
           blending={THREE.AdditiveBlending}
         />
       </points>
-      <points>
+      <points renderOrder={32}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[starsB, 3]} />
         </bufferGeometry>
@@ -142,7 +143,8 @@ export function NightScene() {
           ref={(el) => {
             fireflies.current[i] = el;
           }}
-          position={[d.cx, d.cy, 2]}
+          position={[d.cx, d.cy, 90]}
+          renderOrder={33}
         >
           <planeGeometry args={[d.size * 2.4, d.size * 2.4]} />
           <meshBasicMaterial

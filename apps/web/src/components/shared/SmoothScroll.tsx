@@ -11,19 +11,25 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
-
+    // Nota: NÃO desligamos com prefers-reduced-motion — a home é uma
+    // experiência cinética por natureza (e o dono testa com a preferência
+    // ativa no Windows sem perceber).
     gsap.registerPlugin(ScrollTrigger);
 
+    // lerp (suavização exponencial) em vez de duration: é o que dá o
+    // deslizar "líquido" contínuo do scroll — mesma receita do skyworks
     const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      lerp: 0.09,
       smoothWheel: true,
-      touchMultiplier: 1.5,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.4,
+      syncTouch: true,
+      syncTouchLerp: 0.06,
     });
 
     lenis.on("scroll", ScrollTrigger.update);
+    // exposta p/ navegação programática (dots, âncoras) e testes
+    (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
 
     const onTick = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(onTick);

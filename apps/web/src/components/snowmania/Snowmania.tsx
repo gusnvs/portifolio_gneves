@@ -17,24 +17,12 @@ import {
 } from "./sections/Sections";
 import { useMania } from "./store";
 import {
-  BG_STOPS,
+  BASE_BG,
   SCROLL_VH,
   INK_DARK,
   INK_LIGHT,
   NIGHT_INK_SWITCH_VH,
 } from "./config";
-
-function bgColorAt(scrollVh: number): string {
-  for (let i = 0; i < BG_STOPS.length - 1; i++) {
-    const [a, colorA] = BG_STOPS[i];
-    const [b, colorB] = BG_STOPS[i + 1];
-    if (scrollVh <= b) {
-      const t = gsap.utils.clamp(0, 1, (scrollVh - a) / (b - a));
-      return gsap.utils.interpolate(colorA, colorB)(t);
-    }
-  }
-  return BG_STOPS[BG_STOPS.length - 1][1];
-}
 
 export function Snowmania() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -48,10 +36,11 @@ export function Snowmania() {
       end: "bottom bottom",
       onUpdate: (self) => {
         const scrollVh = self.progress * SCROLL_VH;
-        useMania.setState({ progress: self.progress, scrollVh });
-        if (bgRef.current) {
-          bgRef.current.style.backgroundColor = bgColorAt(scrollVh);
-        }
+        useMania.setState({
+          progress: self.progress,
+          scrollVh,
+          velocity: self.getVelocity(),
+        });
         const night = scrollVh > NIGHT_INK_SWITCH_VH;
         rootRef.current?.style.setProperty(
           "--mania-ink",
@@ -89,7 +78,7 @@ export function Snowmania() {
         <div
           ref={bgRef}
           className="fixed inset-0 z-0"
-          style={{ backgroundColor: BG_STOPS[0][1] }}
+          style={{ backgroundColor: BASE_BG }}
         />
         <MouseGlow />
         <Stage />

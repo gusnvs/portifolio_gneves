@@ -12,7 +12,8 @@ import { SECTION_VH } from "../config";
 export function IntroSection() {
   return (
     <section id="intro" style={{ height: `${SECTION_VH.intro}vh` }} className="relative">
-      <div className="sticky top-0 flex h-screen flex-col items-center justify-center px-6">
+      {/* sem sticky: o título sobe e some no fluxo, os bonecos ficam */}
+      <div className="flex h-screen flex-col items-center justify-center px-6">
         <h1
           className="mania-title mania-outline max-w-6xl text-center lowercase"
           style={{ color: "#161310", "--mania-outline-color": "#f5eddb" } as React.CSSProperties}

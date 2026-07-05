@@ -3,7 +3,8 @@
  * Alturas em vh — a soma define o comprimento total do scroll virtual.
  */
 export const SECTION_VH = {
-  intro: 280,
+  // curta: a divisa da próxima seção entra assim que o título encosta no topo
+  intro: 150,
   fall: 200,
   bio: 200,
   night: 130,
@@ -23,18 +24,20 @@ export const SECTION_START_VH = {
   night: SECTION_VH.intro + SECTION_VH.fall + SECTION_VH.bio,
 } as const;
 
-/** Paradas da cor de fundo: [vh rolados, cor]. Interpolação linear entre elas. */
-export const BG_STOPS: [number, string][] = [
-  [0, "#f5eddb"],
-  [170, "#f5eddb"],
-  [270, "#ffb27d"],
-  [430, "#ffb27d"],
-  [530, "#ff6a1a"],
-  [610, "#ff6a1a"],
-  [700, "#0e0c10"],
-];
+/** Fundo fixo (só a intro mostra ele — as seções trazem seus planos). */
+export const BASE_BG = "#f5eddb";
+
+/**
+ * Cor do plano de cada seção — sobe cobrindo a anterior com a borda
+ * inclinada, como no site de referência.
+ */
+export const SECTION_PLANE_COLORS = {
+  fall: "#ffb27d",
+  bio: "#ff6a1a",
+  night: "#0e0c10",
+} as const;
 
 /** Cor do texto/UI muda quando a página escurece. */
 export const INK_DARK = "#161310";
 export const INK_LIGHT = "#f4ece0";
-export const NIGHT_INK_SWITCH_VH = 655;
+export const NIGHT_INK_SWITCH_VH = SECTION_START_VH.night - 25;

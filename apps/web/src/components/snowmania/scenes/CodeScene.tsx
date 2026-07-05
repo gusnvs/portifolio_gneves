@@ -5,7 +5,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useMania } from "../store";
+import { SECTION_START_VH } from "../config";
 import { clamp01, lerp, easeOutCubic, easeInCubic, mulberry32 } from "./utils";
+
+/** Início da seção do código, em vh rolados. */
+const START = SECTION_START_VH.fall;
 
 const CRYSTAL_FILES = Array.from(
   { length: 9 },
@@ -58,7 +62,7 @@ export function CodeScene() {
         ? -vw * (0.45 + rand() * 0.1) // borda esquerda, colado no limite
         : vw * (0.08 + rand() * 0.42); // direita
       out.push({
-        at: 210 + rand() * 300,
+        at: START - 70 + rand() * 300,
         speed: 0.3 + rand() * 0.45,
         x,
         height: vh * (left ? 0.06 + rand() * 0.08 : 0.07 + rand() * 0.13),
@@ -86,7 +90,7 @@ export function CodeScene() {
     const { scrollVh } = useMania.getState();
     const g = group.current;
     if (!g) return;
-    const active = scrollVh > 180 && scrollVh < 540;
+    const active = scrollVh > START - 100 && scrollVh < START + 260;
     g.visible = active;
     if (!active) return;
 
@@ -95,7 +99,7 @@ export function CodeScene() {
     const t = state.clock.elapsedTime;
 
     // herói: entra de baixo, flutua digitando, sai por cima
-    const p = clamp01((scrollVh - 225) / 255);
+    const p = clamp01((scrollVh - (START - 55)) / 255);
     const enter = easeOutCubic(clamp01(p / 0.22));
     const exit = easeInCubic(clamp01((p - 0.85) / 0.15));
     const heroMesh = hero.current;
@@ -122,7 +126,7 @@ export function CodeScene() {
 
   return (
     <group ref={group} visible={false}>
-      <mesh ref={hero} position={[0, -10000, 30]}>
+      <mesh ref={hero} position={[0, -10000, 60]} renderOrder={14}>
         <planeGeometry args={[heroH * heroAspect, heroH]} />
         <meshBasicMaterial
           map={heroTex}
@@ -142,8 +146,9 @@ export function CodeScene() {
             ref={(el) => {
               crystals.current[i] = el;
             }}
-            position={[d.x, -10000, 5 + (i % 5)]}
+            position={[d.x, -10000, 55 + (i % 5)]}
             rotation={[0, 0, d.rot0]}
+            renderOrder={12}
           >
             <planeGeometry args={[d.height * aspect, d.height]} />
             <meshBasicMaterial

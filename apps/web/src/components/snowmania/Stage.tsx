@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { WallScene } from "./scenes/WallScene";
+import { DividersScene } from "./scenes/DividersScene";
 import { CodeScene } from "./scenes/CodeScene";
 import { HeadScene } from "./scenes/HeadScene";
 import { NightScene } from "./scenes/NightScene";
@@ -24,6 +25,7 @@ export function Stage() {
       >
         <Suspense fallback={null}>
           <WallScene />
+          <DividersScene />
           <CodeScene />
           <HeadScene />
           <NightScene />

@@ -7,6 +7,8 @@ interface ManiaState {
   progress: number;
   /** Scroll em unidades de vh rolados (0..SCROLL_VH). */
   scrollVh: number;
+  /** Velocidade do scroll (px/s) — inclina os planos das seções. */
+  velocity: number;
   /** true quando o preloader terminou — dispara a chuva de bonecos. */
   ready: boolean;
 }
@@ -18,5 +20,6 @@ interface ManiaState {
 export const useMania = create<ManiaState>(() => ({
   progress: 0,
   scrollVh: 0,
+  velocity: 0,
   ready: false,
 }));

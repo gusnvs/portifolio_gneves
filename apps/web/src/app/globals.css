@@ -695,14 +695,15 @@ body {
   .grain::after {
     animation: none;
   }
-  *,
-  *::before,
-  *::after {
+  /* a home (.snowmania) é uma experiência cinética e mantém as animações;
+     o resto do site respeita a preferência do visitante */
+  :not(.snowmania, .snowmania *),
+  :not(.snowmania, .snowmania *)::before,
+  :not(.snowmania, .snowmania *)::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
 }
 
-/* nudge */
 

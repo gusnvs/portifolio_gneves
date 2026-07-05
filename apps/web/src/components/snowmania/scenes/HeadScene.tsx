@@ -5,7 +5,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useMania } from "../store";
+import { SECTION_START_VH } from "../config";
 import { clamp01, lerp, easeOutCubic, easeInCubic } from "./utils";
+
+/** Início da seção da bio, em vh rolados. */
+const START = SECTION_START_VH.bio;
 
 /**
  * Cena 3 — a cabeça gigante do boneco dormindo sobe do canto inferior
@@ -31,7 +35,7 @@ export function HeadScene() {
     const { scrollVh } = useMania.getState();
     const g = group.current;
     if (!g) return;
-    const active = scrollVh > 430 && scrollVh < 700;
+    const active = scrollVh > START - 50 && scrollVh < START + 220;
     g.visible = active;
     if (!active) return;
 
@@ -40,10 +44,10 @@ export function HeadScene() {
     const t = state.clock.elapsedTime;
     const h = vh * 0.82;
 
-    const p = clamp01((scrollVh - 465) / 195);
+    const p = clamp01((scrollVh - (START - 15)) / 195);
     const enter = easeOutCubic(clamp01(p / 0.32));
     // ao final da seção, afunda de volta enquanto a noite chega
-    const sink = easeInCubic(clamp01((scrollVh - 645) / 55));
+    const sink = easeInCubic(clamp01((scrollVh - (START + 165)) / 55));
 
     const mesh = head.current;
     if (mesh) {
@@ -62,7 +66,7 @@ export function HeadScene() {
 
   return (
     <group ref={group} visible={false}>
-      <mesh ref={head} position={[0, -10000, 20]}>
+      <mesh ref={head} position={[0, -10000, 70]} renderOrder={22}>
         <planeGeometry args={[viewport.height * 0.82 * aspect, viewport.height * 0.82]} />
         <meshBasicMaterial
           map={tex}
