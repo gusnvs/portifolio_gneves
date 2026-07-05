@@ -1,7 +1,54 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
+import { motion, useInView, type Variants } from "motion/react";
 import { SECTION_VH } from "../config";
+
+/* Efeito de entrada dos textos (replay a cada re-entrada na viewport):
+   título = palavras deslizam da esquerda; corpo = blur-in palavra a palavra. */
+
+const titleWord: Variants = {
+  hidden: { x: -72, opacity: 0, transition: { duration: 0 } },
+  show: (i: number) => ({
+    x: 0,
+    opacity: 1,
+    transition: { delay: i * 0.09, duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+const bodyWord: Variants = {
+  hidden: { filter: "blur(10px)", opacity: 0, y: 6, transition: { duration: 0 } },
+  show: (i: number) => ({
+    filter: "blur(0px)",
+    opacity: 1,
+    y: 0,
+    transition: { delay: 0.3 + i * 0.016, duration: 0.35 },
+  }),
+};
+
+function SplitWords({
+  text,
+  variants,
+}: {
+  text: string;
+  variants: Variants;
+}) {
+  return (
+    <>
+      {text.split(" ").map((word, i) => (
+        <motion.span
+          key={i}
+          custom={i}
+          variants={variants}
+          className="inline-block whitespace-pre"
+        >
+          {word}{" "}
+        </motion.span>
+      ))}
+    </>
+  );
+}
 
 /**
  * Camada DOM das 4 seções. Cada seção é um trilho alto com conteúdo
@@ -54,18 +101,30 @@ export function IntroSection() {
 }
 
 export function FallSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  // once: false → o efeito toca DE NOVO toda vez que a seção volta pra tela
+  const inView = useInView(ref, { amount: 0.4 });
+
   return (
     <section id="sobre" style={{ height: `${SECTION_VH.fall}vh` }} className="relative">
       <div className="sticky top-0 flex h-screen items-center px-[8vw]">
-        <div className="max-w-xl" style={{ color: "#161310" }}>
-          <h2 className="mania-title-2 lowercase">sim, a lenda: sou eu!</h2>
+        <motion.div
+          ref={ref}
+          className="max-w-xl"
+          style={{ color: "#161310" }}
+          initial="hidden"
+          animate={inView ? "show" : "hidden"}
+        >
+          <h2 className="mania-title-2 lowercase">
+            <SplitWords text="sim, a lenda: sou eu!" variants={titleWord} />
+          </h2>
           <p className="mania-copy mt-6">
-            Sou o Gustavo, desenvolvedor full-stack apaixonado por interfaces
-            vivas. Entre um deploy e outro, quem assume o teclado é o boneco de
-            neve — com a ajuda do Café e do Energético, a dupla que mantém o
-            servidor (e o dev) acordado.
+            <SplitWords
+              text="Sou o Gustavo, desenvolvedor full-stack apaixonado por interfaces vivas. Entre um deploy e outro, quem assume o teclado é o boneco de neve — com a ajuda do Café e do Energético, a dupla que mantém o servidor (e o dev) acordado."
+              variants={bodyWord}
+            />
           </p>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
