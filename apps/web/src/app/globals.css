@@ -637,7 +637,11 @@ body {
   position: absolute;
   bottom: 2rem;
   left: 50%;
-  transform: translateX(-50%);
+  /* some esvaecendo (e escorregando) assim que o scroll começa */
+  opacity: var(--mania-hint, 1);
+  transform: translateX(-50%)
+    translateY(calc((1 - var(--mania-hint, 1)) * 18px));
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -648,7 +652,7 @@ body {
   text-transform: uppercase;
 }
 .mania-scroll-arrow {
-  width: 34px;
+  width: 17px;
   height: auto;
   animation: mania-arrow-drop 1.4s ease-in-out infinite;
 }
@@ -705,5 +709,7 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
 
 

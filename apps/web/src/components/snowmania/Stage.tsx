@@ -21,7 +21,12 @@ export function Stage() {
         flat
         dpr={[1, 1.75]}
         camera={{ position: [0, 0, 100], zoom: 1, near: 1, far: 1000 }}
-        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+        gl={{
+          alpha: true,
+          antialias: true,
+          powerPreference: "high-performance",
+          localClippingEnabled: true,
+        }}
       >
         <Suspense fallback={null}>
           <WallScene />

@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, useInView, type Variants } from "motion/react";
-import { SECTION_VH } from "../config";
+import { motion, type Variants } from "motion/react";
+import { SECTION_VH, SECTION_START_VH } from "../config";
+import { useMania } from "../store";
 
-/* Efeito de entrada dos textos (replay a cada re-entrada na viewport):
-   título = palavras deslizam da esquerda; corpo = blur-in palavra a palavra. */
+/* Efeito dos textos (replay a cada re-entrada na viewport):
+   título = palavras deslizam da esquerda; corpo = blur-in palavra a palavra.
+   A SAÍDA também é animada (espelho da entrada) — nada some seco. */
 
 const titleWord: Variants = {
   hidden: { x: -72, opacity: 0, transition: { duration: 0 } },
@@ -14,6 +16,11 @@ const titleWord: Variants = {
     x: 0,
     opacity: 1,
     transition: { delay: i * 0.09, duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+  }),
+  out: (i: number) => ({
+    x: -60,
+    opacity: 0,
+    transition: { delay: i * 0.045, duration: 0.4, ease: [0.55, 0, 0.55, 0.2] },
   }),
 };
 
@@ -25,7 +32,41 @@ const bodyWord: Variants = {
     y: 0,
     transition: { delay: 0.3 + i * 0.016, duration: 0.35 },
   }),
+  out: (i: number) => ({
+    filter: "blur(9px)",
+    opacity: 0,
+    y: -5,
+    transition: { delay: i * 0.008, duration: 0.28 },
+  }),
 };
+
+/**
+ * Fase do texto dirigida pelo scroll — a saída é ANIMADA nas DUAS direções:
+ * descendo, sai animado antes do pin soltar; subindo de volta, também sai
+ * animado enquanto ainda está visível. O reset seco (hidden) só acontece
+ * quando a seção já está totalmente fora da tela.
+ */
+function useRevealPhase(enterVh: number, exitVh: number, resetVh: number) {
+  const [phase, setPhase] = useState<"hidden" | "show" | "out">("hidden");
+  useEffect(
+    () =>
+      useMania.subscribe((state) => {
+        const v = state.scrollVh;
+        setPhase((prev) => {
+          if (v >= exitVh) return "out";
+          if (v >= enterVh) return "show";
+          if (v >= resetVh) {
+            // zona de transição embaixo: subindo (vinha visível) sai animado;
+            // descendo (ainda escondido) espera o gatilho de entrada
+            return prev === "show" || prev === "out" ? "out" : "hidden";
+          }
+          return "hidden";
+        });
+      }),
+    [enterVh, exitVh, resetVh],
+  );
+  return phase;
+}
 
 function SplitWords({
   text,
@@ -59,8 +100,9 @@ function SplitWords({
 export function IntroSection() {
   return (
     <section id="intro" style={{ height: `${SECTION_VH.intro}vh` }} className="relative">
-      {/* sem sticky: o título sobe e some no fluxo, os bonecos ficam */}
-      <div className="flex h-screen flex-col items-center justify-center px-6">
+      {/* sem sticky: o título sobe e some no fluxo, os bonecos ficam.
+          relative → o hint "role para descobrir" ancora NESTA primeira tela */}
+      <div className="relative flex h-screen flex-col items-center justify-center px-6">
         <h1
           className="mania-title mania-outline max-w-6xl text-center lowercase"
           style={{ color: "#161310", "--mania-outline-color": "#f5eddb" } as React.CSSProperties}
@@ -101,19 +143,21 @@ export function IntroSection() {
 }
 
 export function FallSection() {
-  const ref = useRef<HTMLDivElement>(null);
-  // once: false → o efeito toca DE NOVO toda vez que a seção volta pra tela
-  const inView = useInView(ref, { amount: 0.4 });
+  // entra logo depois da divisa subir; sai animado nas duas direções
+  const phase = useRevealPhase(
+    SECTION_START_VH.fall - 42,
+    SECTION_START_VH.fall + 92,
+    SECTION_START_VH.fall - 97,
+  );
 
   return (
     <section id="sobre" style={{ height: `${SECTION_VH.fall}vh` }} className="relative">
       <div className="sticky top-0 flex h-screen items-center px-[8vw]">
         <motion.div
-          ref={ref}
           className="max-w-xl"
           style={{ color: "#161310" }}
           initial="hidden"
-          animate={inView ? "show" : "hidden"}
+          animate={phase}
         >
           <h2 className="mania-title-2 lowercase">
             <SplitWords text="sim, a lenda: sou eu!" variants={titleWord} />

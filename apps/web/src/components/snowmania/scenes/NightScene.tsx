@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMania } from "../store";
 import { SECTION_START_VH } from "../config";
-import { clamp01, mulberry32 } from "./utils";
+import { clamp01, mulberry32, sharedFx } from "./utils";
 
 /** Textura procedural de círculo suave (estrelas/vagalumes). */
 function makeGlowTexture(): THREE.CanvasTexture {
@@ -48,6 +48,13 @@ export function NightScene() {
 
   const glowTex = useMemo(() => makeGlowTexture(), []);
 
+  // corta na borda da divisa da noite — estrelas não vazam pra seção da bio
+  const clipPlane = useMemo(
+    () => new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+    [],
+  );
+  const clip = useMemo(() => [clipPlane], [clipPlane]);
+
   const { starsA, starsB, flies } = useMemo(() => {
     const rand = mulberry32(4242);
     const vw = viewport.width;
@@ -86,6 +93,12 @@ export function NightScene() {
     if (!g.visible) return;
 
     const t = state.clock.elapsedTime;
+    const vh = viewport.height;
+    const edgeY =
+      vh / 2 - ((SECTION_START_VH.night / 100) * vh - (scrollVh / 100) * vh);
+    const tilt = sharedFx.tilt;
+    clipPlane.normal.set(Math.sin(tilt), -Math.cos(tilt), 0);
+    clipPlane.constant = Math.cos(tilt) * edgeY;
     if (starMatA.current) {
       starMatA.current.opacity = nightP * (0.55 + 0.45 * Math.sin(t * 1.1));
     }
@@ -119,6 +132,7 @@ export function NightScene() {
           opacity={0}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          clippingPlanes={clip}
         />
       </points>
       <points renderOrder={32}>
@@ -135,6 +149,7 @@ export function NightScene() {
           opacity={0}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          clippingPlanes={clip}
         />
       </points>
       {flies.map((d, i) => (
@@ -157,6 +172,7 @@ export function NightScene() {
             opacity={0}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
+            clippingPlanes={clip}
           />
         </mesh>
       ))}

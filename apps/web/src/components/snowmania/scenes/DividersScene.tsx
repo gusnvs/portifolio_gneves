@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useMania } from "../store";
-import { mulberry32 } from "./utils";
+import { makeBlobTexture, sharedFx } from "./utils";
 import {
   SECTION_START_VH,
   TOTAL_VH,
@@ -25,45 +25,6 @@ const DIVIDERS = [
   { start: SECTION_START_VH.night, color: SECTION_PLANE_COLORS.night, order: 30 },
 ];
 
-/** Textura de poça orgânica (blob de bordas suaves) desenhada uma vez. */
-function makeBlobTexture(seed: number): THREE.CanvasTexture {
-  const size = 512;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  const rand = mulberry32(seed);
-  const cx = size / 2;
-  const cy = size / 2;
-  const base = size * 0.3;
-  const lobes = 3 + Math.floor(rand() * 2);
-  const phase = rand() * Math.PI * 2;
-  const amp = 0.22 + rand() * 0.12;
-  const points: [number, number][] = [];
-  const steps = 48;
-  for (let i = 0; i < steps; i++) {
-    const a = (i / steps) * Math.PI * 2;
-    const r =
-      base *
-      (1 +
-        amp * Math.sin(lobes * a + phase) +
-        0.1 * Math.sin((lobes + 2) * a - phase * 1.7));
-    points.push([cx + r * Math.cos(a) * 1.35, cy + r * Math.sin(a) * 0.75]);
-  }
-  ctx.fillStyle = BASE_BG;
-  ctx.beginPath();
-  for (let i = 0; i <= steps; i++) {
-    const [x0, y0] = points[i % steps];
-    const [x1, y1] = points[(i + 1) % steps];
-    if (i === 0) ctx.moveTo((x0 + x1) / 2, (y0 + y1) / 2);
-    else ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
-  }
-  ctx.closePath();
-  ctx.fill();
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
 
 export function DividersScene() {
   const { viewport } = useThree();
@@ -71,17 +32,21 @@ export function DividersScene() {
   const tilt = useRef(0);
 
   const blobTextures = useMemo(
-    () => [makeBlobTexture(11), makeBlobTexture(47), makeBlobTexture(83)],
+    () => [
+      makeBlobTexture(11, BASE_BG),
+      makeBlobTexture(47, BASE_BG),
+      makeBlobTexture(83, BASE_BG),
+    ],
     [],
   );
 
   // poças por divisor: [x relativo à largura, y em vh abaixo da borda, escala]
-  const blobLayouts = useMemo(
+  // (seção 2 fica SEM poças no plano — lá as nuvens sobem sozinhas no CodeScene)
+  const blobLayouts = useMemo<
+    { x: number; y: number; s: number; tex: number }[][]
+  >(
     () => [
-      [
-        { x: -0.18, y: 0.55, s: 0.5, tex: 0 },
-        { x: 0.3, y: 1.4, s: 0.38, tex: 1 },
-      ],
+      [],
       [
         { x: 0.22, y: 0.6, s: 0.46, tex: 2 },
         { x: -0.3, y: 1.5, s: 0.34, tex: 0 },
@@ -101,6 +66,7 @@ export function DividersScene() {
     // inclinação da borda segue a velocidade do scroll, suavizada
     const target = THREE.MathUtils.clamp(-velocity * 0.00006, -0.09, 0.09);
     tilt.current += (target - tilt.current) * Math.min(dt * 5, 1);
+    sharedFx.tilt = tilt.current;
 
     const scrollPx = (scrollVh / 100) * vh;
     for (let i = 0; i < DIVIDERS.length; i++) {

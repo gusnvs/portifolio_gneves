@@ -41,6 +41,11 @@ export function Snowmania() {
           scrollVh,
           velocity: self.getVelocity(),
         });
+        // o "role para descobrir" esvaece assim que o scroll começa
+        rootRef.current?.style.setProperty(
+          "--mania-hint",
+          String(gsap.utils.clamp(0, 1, 1 - scrollVh / 12)),
+        );
         const night = scrollVh > NIGHT_INK_SWITCH_VH;
         rootRef.current?.style.setProperty(
           "--mania-ink",
