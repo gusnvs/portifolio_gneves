@@ -51,6 +51,7 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
   const pivots = useRef<(THREE.Group | null)[]>([]);
   const smokeMat = useRef<THREE.MeshBasicMaterial>(null);
   const cursorMat = useRef<THREE.MeshBasicMaterial>(null);
+  const cursorMesh = useRef<THREE.Mesh>(null);
 
   useEffect(() => {
     for (const tex of textures) {
@@ -134,7 +135,11 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
       smokeMat.current.opacity = (0.85 - 0.5 * ease) * fadeIn * fadeOut;
     }
 
-    // cursor do terminal piscando ao lado do prompt ">_"
+    // cursor do terminal: pisca e inclina levemente no sentido horário
+    if (cursorMesh.current) {
+      // inclinação base (-2°) + micro-oscilação horária sincronizada ao piscar
+      cursorMesh.current.rotation.z = deg(-4) + deg(-4) * Math.sin(t * 1.9 * Math.PI);
+    }
     if (cursorMat.current) {
       cursorMat.current.opacity = (t * 1.9) % 2 < 1 ? 0.85 : 0;
     }
@@ -167,7 +172,7 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
         </group>
       ))}
       {/* cursor piscando na tela do monitor (logo após o ">_" da arte) */}
-      <mesh position={[772 - DW / 2, DH / 2 - 174, 2.6]} rotation={[0, 0, deg(-2)]} renderOrder={13.05}>
+      <mesh ref={cursorMesh} position={[772 - DW / 2, DH / 2 - 175, 2.6]} renderOrder={13.05}>
         <planeGeometry args={[17, 5.5]} />
         <meshBasicMaterial
           ref={cursorMat}
