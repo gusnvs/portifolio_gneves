@@ -30,12 +30,13 @@ interface PartDef {
   order: number;
 }
 
-// ordem das camadas: base < braço direito < mão esquerda < cabeça < fumaça
+// ordem das camadas: base < mão esquerda (fica ATRÁS do braço) < braço
+// direito < cabeça < fumaça
 const PARTS: PartDef[] = [
   { file: "/snowmania/parts/base.png", left: 0, top: 0, width: 1448, height: 1086, ox: 0.5, oy: 0.5, order: 13 },
+  { file: "/snowmania/parts/left-hand.png", left: 580, top: 430, width: 120, height: (120 * 434) / 427, ox: 0.45, oy: 0.6, order: 13.05 },
   { file: "/snowmania/parts/right-arm-hand.png", left: 513, top: 415, width: 314, height: (314 * 531) / 784, ox: 0.18, oy: 0.72, order: 13.1 },
-  { file: "/snowmania/parts/left-hand.png", left: 590, top: 452, width: 120, height: (120 * 434) / 427, ox: 0.45, oy: 0.6, order: 13.15 },
-  { file: "/snowmania/parts/head.png", left: 117, top: -6, width: 724, height: (724 * 1086) / 1448, ox: 0.64, oy: 0.76, order: 13.2 },
+  { file: "/snowmania/parts/head.png", left: 95, top: 10, width: 724, height: (724 * 1086) / 1448, ox: 0.64, oy: 0.76, order: 13.2 },
   { file: "/snowmania/parts/smoke.png", left: 1003, top: 312, width: 101, height: (101 * 552) / 288, ox: 0.5, oy: 1, order: 13.25 },
 ];
 
@@ -96,33 +97,37 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
     const hand = pivots.current[IDX.hand];
     const smoke = pivots.current[IDX.smoke];
 
+    // IMPORTANTE: as animações SOMAM à posição-base do pivô (placed[].pivot),
+    // nunca sobrescrevem — senão a peça abandona o encaixe do quebra-cabeça
+
     // cabeça: concentrado no código — flutua e inclina de leve, bem suave
     if (head) {
       const w = (1 - Math.cos((t / 3.2) * Math.PI * 2)) * 0.5; // 0..1..0
       head.rotation.z = -deg(8) * w;
-      head.position.y = 4 * w;
+      head.position.y = placed[IDX.head].pivot[1] + 4 * w;
     }
 
     // braço direito: digitação — oscila rápido no pivô do ombro
     const typePhase = (t / 1.1) * Math.PI * 2;
     if (arm) {
       arm.rotation.z = -deg(3) * Math.sin(typePhase);
-      arm.position.y = -2 * (1 - Math.cos(typePhase)); // 0..-4, batidinha
+      // 0..-4, batidinha
+      arm.position.y = placed[IDX.arm].pivot[1] - 2 * (1 - Math.cos(typePhase));
     }
 
     // mão esquerda: digita alternado com o braço (meio ciclo + delay)
     if (hand) {
       const p2 = typePhase + Math.PI - 0.18 * ((Math.PI * 2) / 1.1);
       hand.rotation.z = deg(2) * Math.sin(p2);
-      hand.position.y = 3 * Math.sin(p2);
+      hand.position.y = placed[IDX.hand].pivot[1] + 3 * Math.sin(p2);
     }
 
     // fumaça: sobe, balança e esvai — loop com fade nas pontas (sem pop)
     if (smoke && smokeMat.current) {
       const p = (t % 2.7) / 2.7;
       const ease = p * p * (3 - 2 * p);
-      smoke.position.y = 24 * ease;
-      smoke.position.x = Math.sin(t * 1.6) * 3;
+      smoke.position.y = placed[IDX.smoke].pivot[1] + 24 * ease;
+      smoke.position.x = placed[IDX.smoke].pivot[0] + Math.sin(t * 1.6) * 3;
       smoke.scale.setScalar(1 + ease * 0.08);
       const fadeIn = Math.min(p * 7, 1);
       const fadeOut = 1 - THREE.MathUtils.clamp((p - 0.8) / 0.2, 0, 1);
