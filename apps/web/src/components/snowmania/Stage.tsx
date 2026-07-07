@@ -28,6 +28,10 @@ export function Stage() {
           localClippingEnabled: true,
         }}
       >
+        {/* luzes só afetam o modelo 3D (sprites usam material basic) */}
+        <ambientLight intensity={1.15} />
+        <directionalLight position={[420, 600, 700]} intensity={1.7} />
+        <directionalLight position={[-500, -200, 400]} intensity={0.5} />
         <Suspense fallback={null}>
           <WallScene />
           <DividersScene />

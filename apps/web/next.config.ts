@@ -11,7 +11,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://cdn.simpleicons.org https://cdn.jsdelivr.net https://*.amazonaws.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.amazonaws.com",
+  // blob: p/ texturas embutidas em GLB (GLTFLoader extrai como blob URLs)
+  "connect-src 'self' blob: https://*.amazonaws.com",
   "media-src 'self'",
   "worker-src 'self' blob:",
   "object-src 'none'",
