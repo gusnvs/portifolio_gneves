@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, type Variants } from "motion/react";
 import { SECTION_VH, SECTION_START_VH } from "../config";
 import { useMania } from "../store";
+import { RetroComputer } from "../retro/RetroComputer";
 
 /* Efeito dos textos (replay a cada re-entrada na viewport):
    título = palavras deslizam da esquerda; corpo = blur-in palavra a palavra.
@@ -211,43 +212,28 @@ export function BioSection() {
 export function NightSection() {
   return (
     <section id="terminal" style={{ height: `${SECTION_VH.night}vh` }} className="relative">
-      <div className="sticky top-0 flex h-screen flex-col items-center justify-center gap-8 px-6 text-center">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-[-10vw] bottom-0 h-[55vh]"
-          style={{
-            background:
-              "radial-gradient(60% 90% at 50% 100%, rgba(255,138,61,0.2), transparent 70%)",
-          }}
-        />
-        <h2 className="mania-title lowercase" style={{ color: "#f4ece0" }}>
-          quer ver o resto? entra no sistema!
-        </h2>
-        <p className="mania-copy max-w-lg" style={{ color: "#cdc7bb" }}>
-          O portfólio completo vive num desktop retrô: projetos, jogos,
-          guestbook e um terminal de verdade.
-        </p>
-        <Link
-          href="/system"
-          className="mania-pill mania-pill--big pointer-events-auto"
-          style={{ color: "#f4ece0" }}
-        >
-          abrir o terminal
-        </Link>
-        {/* amigos do boneco — viram sprites da cena noturna depois */}
-        <img
-          src="/snowmania/chars/toast-cafe.webp"
-          alt=""
-          aria-hidden
-          className="mania-bob pointer-events-none absolute bottom-[-2vh] left-[6vw] w-[clamp(160px,22vw,360px)]"
-        />
-        <img
-          src="/snowmania/chars/toast-energetico.webp"
-          alt=""
-          aria-hidden
-          className="mania-bob pointer-events-none absolute bottom-[-2vh] right-[6vw] w-[clamp(140px,19vw,320px)]"
-          style={{ animationDelay: "-2.6s" }}
-        />
+      <div className="sticky top-0 h-screen overflow-hidden">
+        {/* computador retrô 3D — preenche o lado direito (desktop) / fundo (mobile) */}
+        <RetroComputer />
+        {/* texto por cima, à esquerda; não bloqueia o clique no computador */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-6 px-[8vw]">
+          <h2 className="mania-title max-w-xl lowercase" style={{ color: "#f4ece0" }}>
+            quer ver o resto? entra no sistema!
+          </h2>
+          <p className="mania-copy max-w-md" style={{ color: "#cdc7bb" }}>
+            O portfólio completo vive num desktop retrô: projetos, jogos,
+            guestbook e um terminal de verdade.
+          </p>
+          <p className="retro-hint">clique no computador para entrar →</p>
+          {/* fallback acessível (o clique no computador faz o mesmo) */}
+          <Link
+            href="/system"
+            className="mania-pill pointer-events-auto self-start"
+            style={{ color: "#f4ece0" }}
+          >
+            abrir o terminal
+          </Link>
+        </div>
       </div>
     </section>
   );

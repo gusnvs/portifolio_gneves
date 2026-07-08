@@ -15,6 +15,7 @@ import {
   BioSection,
   NightSection,
 } from "./sections/Sections";
+import { ProjectCards } from "./sections/ProjectCards";
 import { useMania } from "./store";
 import {
   BASE_BG,
@@ -97,6 +98,8 @@ export function Snowmania() {
           <BioSection />
           <NightSection />
         </main>
+        {/* cards de projeto — camada fixa na frente do canvas (z-30) */}
+        <ProjectCards />
       </div>
     </SmoothScroll>
   );

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { useMania } from "../store";
+import { CARD_PHASE } from "../config";
+import { clamp01 } from "./utils";
 
 /**
  * A ilustração central da seção "sim, a lenda" — o boneco de neve
@@ -44,21 +47,70 @@ const IDX = { base: 0, arm: 1, hand: 2, head: 3, smoke: 4 } as const;
 
 const deg = THREE.MathUtils.degToRad;
 
+/**
+ * Coreografia da imagem ao longo da fase dos cards (cardP 0..1). A imagem
+ * passeia: começa à direita (título à esquerda) → centro (cresce) → esquerda
+ * (dá espaço pro card da direita) → cruza pro lado direito (card da esquerda)
+ * → volta ao centro. x em frações da largura (0 = centro, + = direita).
+ */
+const KF_X: [number, number][] = [
+  [0.0, 0.15],
+  [0.1, 0.0],
+  [0.25, -0.2],
+  [0.42, -0.21],
+  [0.5, 0.0],
+  [0.58, 0.21],
+  [0.75, 0.22],
+  [0.9, 0.0],
+  [1.0, 0.0],
+];
+/** crescimento sutil (multiplica a escala base). */
+const KF_S: [number, number][] = [
+  [0.0, 1.0],
+  [0.1, 1.1],
+  [0.5, 1.12],
+  [0.9, 1.05],
+  [1.0, 1.0],
+];
+
+/** interpola uma tabela de keyframes com suavização (smoothstep) entre eles. */
+function kf(stops: [number, number][], x: number): number {
+  if (x <= stops[0][0]) return stops[0][1];
+  const last = stops[stops.length - 1];
+  if (x >= last[0]) return last[1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [ax, av] = stops[i];
+    const [bx, bv] = stops[i + 1];
+    if (x >= ax && x <= bx) {
+      const u = (x - ax) / (bx - ax);
+      const e = u * u * (3 - 2 * u); // smoothstep
+      return av + (bv - av) * e;
+    }
+  }
+  return last[1];
+}
+
 export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
   const { viewport } = useThree();
-  const textures = useTexture(PARTS.map((p) => p.file));
+  // configura cor/anisotropia no carregamento (drei chama onLoad) — evita
+  // mutar o retorno do hook num efeito
+  const textures = useTexture(
+    PARTS.map((p) => p.file),
+    (loaded) => {
+      const arr = (Array.isArray(loaded) ? loaded : [loaded]) as THREE.Texture[];
+      for (const tex of arr) {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+      }
+    },
+  );
   const root = useRef<THREE.Group>(null);
   const pivots = useRef<(THREE.Group | null)[]>([]);
   const smokeMat = useRef<THREE.MeshBasicMaterial>(null);
   const cursorMat = useRef<THREE.MeshBasicMaterial>(null);
   const cursorMesh = useRef<THREE.Mesh>(null);
-
-  useEffect(() => {
-    for (const tex of textures) {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 4;
-    }
-  }, [textures]);
+  // x/scale suavizados quadro a quadro (lerp) pra ninguém "teleportar"
+  const smooth = useRef({ x: 0.15, s: 1, ready: false });
 
   // pivô e offset do mesh em coordenadas de design centradas (y pra cima)
   const placed = useMemo(
@@ -76,22 +128,62 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
     [],
   );
 
-  useFrame((state) => {
+  useFrame((state, dt) => {
     const g = root.current;
     if (!g) return;
 
+    const { scrollVh } = useMania.getState();
     const vw = viewport.width;
     const vh = viewport.height;
     const t = state.clock.elapsedTime;
+    const sm = smooth.current;
 
-    // enquadramento: central, um pouco à direita (o título fica à esquerda)
+    // enquadramento base
     const isNarrow = vw <= 980;
     const sceneH = isNarrow
       ? Math.min(vh * 0.5, (vw * 0.94) / (DW / DH))
       : Math.min(vh * 0.84, (vw * 0.56) / (DW / DH));
     const k = sceneH / DH;
-    g.scale.set(k, k, 1);
-    g.position.set(isNarrow ? 0 : vw * 0.15, isNarrow ? -vh * 0.21 : -vh * 0.03, 60);
+
+    // --- coreografia dirigida pelo scroll (fase dos cards) --------------
+    const cardP = clamp01(
+      (scrollVh - CARD_PHASE.start) / (CARD_PHASE.end - CARD_PHASE.start),
+    );
+    // no mobile a imagem passeia bem menos (cards ficam ~centralizados)
+    const ampX = isNarrow ? 0.4 : 1;
+    const targetX = kf(KF_X, cardP) * ampX;
+    const targetS = kf(KF_S, cardP);
+
+    // suaviza x/scale (lerp exponencial) — nada de saltos ao mudar de beat
+    if (!sm.ready) {
+      sm.x = targetX;
+      sm.s = targetS;
+      sm.ready = true;
+    }
+    const lerpA = 1 - Math.exp(-6 * Math.min(dt, 0.05));
+    sm.x += (targetX - sm.x) * lerpA;
+    sm.s += (targetS - sm.s) * lerpA;
+
+    // --- vida orgânica: flutua "ao vento" sempre, mesmo parado ----------
+    const floatX =
+      (Math.sin(t * 0.31) * 0.6 + Math.sin(t * 0.73 + 1.3) * 0.4) * vw * 0.012;
+    const floatY =
+      (Math.sin(t * 0.27 + 2.1) * 0.6 + Math.sin(t * 0.61 + 0.5) * 0.4) *
+      vh *
+      0.016;
+    const floatRot =
+      (Math.sin(t * 0.23) + Math.sin(t * 0.41 + 1.7) * 0.5) * deg(1.2);
+
+    // --- deformação "amoeba": respira esticando/achatando em oposição ----
+    const breathe = Math.sin(t * 0.9) * 0.02 + Math.sin(t * 1.7 + 1.1) * 0.012;
+    const sx = 1 + breathe;
+    const sy = 1 - breathe * 0.9;
+
+    const baseX = isNarrow ? 0 : 0;
+    const baseY = isNarrow ? -vh * 0.21 : -vh * 0.03;
+    g.position.set(baseX + sm.x * vw + floatX, baseY + floatY, 60);
+    g.rotation.z = floatRot;
+    g.scale.set(k * sm.s * sx, k * sm.s * sy, 1);
 
     const head = pivots.current[IDX.head];
     const arm = pivots.current[IDX.arm];
@@ -101,11 +193,13 @@ export function SnowmanRig({ clip }: { clip: THREE.Plane[] }) {
     // IMPORTANTE: as animações SOMAM à posição-base do pivô (placed[].pivot),
     // nunca sobrescrevem — senão a peça abandona o encaixe do quebra-cabeça
 
-    // cabeça: concentrado no código — flutua e inclina de leve, bem suave
+    // cabeça: concentrado no código — flutua e inclina de leve, bem suave;
+    // a cartola estica um tiquinho na vertical (amoeba, "orelha puxando")
     if (head) {
       const w = (1 - Math.cos((t / 3.2) * Math.PI * 2)) * 0.5; // 0..1..0
       head.rotation.z = -deg(8) * w;
       head.position.y = placed[IDX.head].pivot[1] + 4 * w;
+      head.scale.set(1 - breathe * 0.7, 1 + breathe * 0.9, 1);
     }
 
     // braço direito: digitação — oscila rápido no pivô do ombro

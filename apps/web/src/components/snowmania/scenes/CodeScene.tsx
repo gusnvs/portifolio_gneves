@@ -139,7 +139,7 @@ export function CodeScene() {
     const { scrollVh, velocity } = useMania.getState();
     const g = group.current;
     if (!g) return;
-    const active = scrollVh > START - 100 && scrollVh < START + 260;
+    const active = scrollVh > START - 100 && scrollVh < START + 400;
     g.visible = active;
     if (!active) return;
 
