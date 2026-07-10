@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Terminal } from "@/components/terminal/Terminal";
+import { TerminalBootReveal } from "@/components/terminal/TerminalBootReveal";
 import { CustomCursor } from "@/components/shared/CustomCursor";
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ export default function SystemTerminalPage() {
   return (
     <div className="flex min-h-[100svh] items-center justify-center p-0 sm:p-6">
       <CustomCursor />
+      <TerminalBootReveal />
       <div className="flex h-[100svh] w-full flex-col overflow-hidden border border-line bg-bg shadow-2xl sm:h-[86vh] sm:max-w-5xl sm:rounded-xl">
         {/* window chrome */}
         <div className="flex items-center justify-between border-b border-line bg-bg-2 px-4 py-2.5">

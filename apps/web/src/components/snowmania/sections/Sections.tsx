@@ -225,12 +225,8 @@ export function NightSection() {
             guestbook e um terminal de verdade.
           </p>
           <p className="retro-hint">clique no computador para entrar →</p>
-          {/* fallback acessível (o clique no computador faz o mesmo) */}
-          <Link
-            href="/system"
-            className="mania-pill pointer-events-auto self-start"
-            style={{ color: "#f4ece0" }}
-          >
+          {/* link acessível invisível — o CTA visual é o próprio computador */}
+          <Link href="/system" className="sr-only pointer-events-auto">
             abrir o terminal
           </Link>
         </div>

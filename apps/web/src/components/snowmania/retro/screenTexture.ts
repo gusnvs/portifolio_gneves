@@ -4,14 +4,17 @@ import * as THREE from "three";
  * "Vídeo" da tela do computador retrô desenhado num canvas 2D e enviado como
  * textura — mesma ideia do shader.se (flipbook de frames), mas aqui montamos
  * o frame na mão pra ter CRT completo: scanlines, vinheta, flicker, aberração
- * cromática, botão ENTER no hover e glitch na transição. Depois trocamos a
- * playlist de imagens por vídeos/sprite-sheets reais sem mexer no resto.
+ * cromática, botão ENTER no hover e, na transição, o pacote de TV ANTIGA
+ * (chuvisco, perda de sincronismo, barra de zumbido e o colapso em linha
+ * branca de TV desligando). Depois trocamos a playlist de imagens por
+ * vídeos/sprite-sheets reais sem mexer no resto.
  */
 
 export interface ScreenState {
   hover: number; // 0..1 (aparição do botão ENTER)
   enter: number; // 0..1 (transição "entrando na tela")
-  glitch: number; // 0..1 intensidade de glitch
+  /** 0..1 — intensidade da distorção de TV antiga (chuvisco, sincronismo) */
+  glitch: number;
 }
 
 export class ScreenTexture {
@@ -30,6 +33,10 @@ export class ScreenTexture {
   private prevIdx = 0;
   private sample: HTMLCanvasElement;
   private sampleCtx: CanvasRenderingContext2D;
+  // buffer p/ distorções de TV (jitter/rolo lêem o frame INTEIRO estável —
+  // desenhar o canvas sobre si mesmo em fatias corromperia a fonte)
+  private buf: HTMLCanvasElement;
+  private bufCtx: CanvasRenderingContext2D;
 
   constructor(sources: string[], w = 512, h = 384) {
     this.w = w;
@@ -38,6 +45,10 @@ export class ScreenTexture {
     this.cv.width = w;
     this.cv.height = h;
     this.ctx = this.cv.getContext("2d")!;
+    this.buf = document.createElement("canvas");
+    this.buf.width = w;
+    this.buf.height = h;
+    this.bufCtx = this.buf.getContext("2d")!;
     this.sample = document.createElement("canvas");
     this.sample.width = 1;
     this.sample.height = 1;
@@ -134,29 +145,49 @@ export class ScreenTexture {
 
     // aberração cromática sutil (desloca cópia vermelha/azul)
     ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = 0.12 + state.glitch * 0.25;
+    ctx.globalAlpha = 0.08 + state.glitch * 0.06;
     if (this.images[this.idx]?.complete) {
-      const off = 2 + state.glitch * 8;
+      const off = 1.5 + state.glitch * 2;
       ctx.drawImage(this.cv, -off, 0);
       ctx.drawImage(this.cv, off, 0);
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
 
-    // glitch: fatias horizontais deslocadas + barras coloridas
-    if (state.glitch > 0.001) {
-      const slices = 8;
-      for (let i = 0; i < slices; i++) {
-        if (Math.random() > state.glitch) continue;
-        const sy = Math.random() * h;
-        const sh = 6 + Math.random() * (h / 6);
-        const dx = (Math.random() - 0.5) * 60 * state.glitch;
-        ctx.drawImage(this.cv, 0, sy, w, sh, dx, sy, w, sh);
-        if (Math.random() < 0.5) {
-          ctx.fillStyle = Math.random() < 0.5 ? "rgba(255,106,26,0.35)" : "rgba(90,200,255,0.3)";
-          ctx.fillRect(0, sy, w, 2 + Math.random() * 4);
-        }
+    // --- TV ANTIGA: perda de sincronismo + chuvisco + barra de zumbido ---
+    const tv = state.glitch;
+    if (tv > 0.001) {
+      // congela o frame atual no buffer e redesenha com as distorções
+      this.bufCtx.clearRect(0, 0, w, h);
+      this.bufCtx.drawImage(this.cv, 0, 0);
+      // horizontal hold: a imagem inteira treme de leve pros lados
+      const hx = Math.sin(now * 31) * 2.5 * tv + (Math.random() - 0.5) * 2 * tv;
+      // vertical roll: com o sinal fraco, a imagem "rola" pra cima (com wrap)
+      const roll = tv > 0.4 ? (now * (40 + tv * 220)) % h : 0;
+      ctx.drawImage(this.buf, hx, -roll);
+      if (roll > 0) {
+        ctx.drawImage(this.buf, hx, h - roll);
+        // faixa de blanking entre as voltas do rolo (a "barra preta" da TV)
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(0, h - roll - 3, w, 6);
       }
+      // chuvisco (static): pontinhos aleatórios preto/branco
+      const grains = Math.floor(240 * tv);
+      for (let i = 0; i < grains; i++) {
+        const gx = Math.random() * w;
+        const gy = Math.random() * h;
+        const lum = Math.random() > 0.5 ? 255 : 30;
+        ctx.fillStyle = `rgba(${lum},${lum},${lum},${0.1 + Math.random() * 0.22 * tv})`;
+        ctx.fillRect(gx, gy, 1.5 + Math.random() * 2, 1.5 + Math.random() * 2);
+      }
+      // barra de zumbido (hum bar): banda clara descendo devagar
+      const barY = ((now * 85) % (h * 1.4)) - h * 0.2;
+      const bar = ctx.createLinearGradient(0, barY, 0, barY + h * 0.22);
+      bar.addColorStop(0, "rgba(255,240,220,0)");
+      bar.addColorStop(0.5, `rgba(255,240,220,${0.08 + tv * 0.1})`);
+      bar.addColorStop(1, "rgba(255,240,220,0)");
+      ctx.fillStyle = bar;
+      ctx.fillRect(0, barY, w, h * 0.22);
     }
 
     // scanlines
@@ -192,11 +223,31 @@ export class ScreenTexture {
       ctx.globalAlpha = 1;
     }
 
-    // clarão branco no fim da transição (entrou na tela)
-    if (state.enter > 0.55) {
-      const f = (state.enter - 0.55) / 0.45;
-      ctx.fillStyle = `rgba(255,245,230,${f})`;
+    // ao mergulhar fundo, a TV "DESLIGA": a imagem colapsa verticalmente
+    // numa linha branca brilhante que se apaga (o /system religa depois)
+    if (state.enter > 0.45) {
+      const c = Math.min(1, (state.enter - 0.45) / 0.4);
+      const ease = c * c * (3 - 2 * c);
+      // congela o quadro e o espreme em direção à linha central
+      this.bufCtx.clearRect(0, 0, w, h);
+      this.bufCtx.drawImage(this.cv, 0, 0);
+      ctx.fillStyle = "#020104";
       ctx.fillRect(0, 0, w, h);
+      const sq = Math.max(2, h * (1 - ease));
+      ctx.drawImage(this.buf, 0, 0, w, h, 0, (h - sq) / 2, w, sq);
+      // a linha central acende conforme colapsa e some no fim
+      const lineGlow = Math.sin(Math.min(1, c * 1.15) * Math.PI); // 0→1→0
+      if (lineGlow > 0.01) {
+        ctx.globalCompositeOperation = "lighter";
+        const lh = 2 + 10 * lineGlow;
+        const lg = ctx.createLinearGradient(0, h / 2 - lh, 0, h / 2 + lh);
+        lg.addColorStop(0, "rgba(255,235,210,0)");
+        lg.addColorStop(0.5, `rgba(255,250,240,${0.9 * lineGlow})`);
+        lg.addColorStop(1, "rgba(255,235,210,0)");
+        ctx.fillStyle = lg;
+        ctx.fillRect(0, h / 2 - lh, w, lh * 2);
+        ctx.globalCompositeOperation = "source-over";
+      }
     }
 
     // vinheta CRT

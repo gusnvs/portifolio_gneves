@@ -51,9 +51,8 @@ export function DividersScene() {
         { x: 0.22, y: 0.6, s: 0.46, tex: 2 },
         { x: -0.3, y: 1.5, s: 0.34, tex: 0 },
       ],
-      [
-        { x: -0.24, y: 0.7, s: 0.42, tex: 1 },
-      ],
+      // seção final (noite): sem poça — só o computador retrô
+      [],
     ],
     [],
   );
