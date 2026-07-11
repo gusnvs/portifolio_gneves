@@ -59,7 +59,6 @@ export function DividersScene() {
 
   useFrame((_, dt) => {
     const { scrollVh, velocity } = useMania.getState();
-    const vw = viewport.width;
     const vh = viewport.height;
 
     // inclinação da borda segue a velocidade do scroll, suavizada

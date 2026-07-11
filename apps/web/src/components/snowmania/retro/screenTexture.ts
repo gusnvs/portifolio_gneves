@@ -31,6 +31,18 @@ export class ScreenTexture {
   private nextAt = 0;
   private fade = 1; // 0..1 crossfade entre imagem anterior e atual
   private prevIdx = 0;
+  // vídeos da telinha — assumem o lugar das imagens quando prontos
+  private videoSources: string[] = [];
+  private videos: HTMLVideoElement[] = [];
+  private vIdx = 0;
+  private vPrevIdx = -1;
+  private vFade = 1;
+  private vNextAt = 0;
+  private vStarted = false;
+  private avgAt = 0;
+  private warmed = false;
+  /** segundos que cada vídeo fica em cena antes do crossfade pro próximo */
+  private static SLOT = 7;
   private sample: HTMLCanvasElement;
   private sampleCtx: CanvasRenderingContext2D;
   // buffer p/ distorções de TV (jitter/rolo lêem o frame INTEIRO estável —
@@ -38,7 +50,8 @@ export class ScreenTexture {
   private buf: HTMLCanvasElement;
   private bufCtx: CanvasRenderingContext2D;
 
-  constructor(sources: string[], w = 512, h = 384) {
+  constructor(sources: string[], videoSources: string[] = [], w = 512, h = 384) {
+    this.videoSources = videoSources;
     this.w = w;
     this.h = h;
     this.cv = document.createElement("canvas");
@@ -67,10 +80,46 @@ export class ScreenTexture {
     }
   }
 
-  /** troca a fonte da tela (ex.: quando os vídeos reais chegarem). */
-  private computeAvg(img: HTMLImageElement) {
+  /**
+   * Começa a baixar/decodificar os vídeos — chamado quando o usuário se
+   * APROXIMA da seção (não no load da página: são MBs que competiriam com
+   * o GLB e as texturas do resto da home).
+   */
+  warm() {
+    if (this.warmed || this.videoSources.length === 0) return;
+    this.warmed = true;
+    for (const src of this.videoSources) {
+      const v = document.createElement("video");
+      v.muted = true;
+      v.defaultMuted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.preload = "auto";
+      v.src = src;
+      v.load();
+      this.videos.push(v);
+    }
+    // o primeiro já começa a rodar (mudo) pra ter frame pronto na chegada
+    this.videos[0]?.play().catch(() => {});
+  }
+
+  /** pausa/retoma o vídeo ativo — nada decodifica fora da seção */
+  setActive(on: boolean) {
+    if (!this.warmed) return;
+    if (on) {
+      this.videos[this.vIdx]?.play().catch(() => {});
+    } else {
+      for (const v of this.videos) v.pause();
+    }
+  }
+
+  private videoReady(v?: HTMLVideoElement): v is HTMLVideoElement {
+    return !!v && v.readyState >= 2 && v.videoWidth > 0;
+  }
+
+  private computeAvg(src: HTMLImageElement | HTMLVideoElement) {
     try {
-      this.sampleCtx.drawImage(img, 0, 0, 1, 1);
+      this.sampleCtx.drawImage(src, 0, 0, 1, 1);
       const [r, g, b] = this.sampleCtx.getImageData(0, 0, 1, 1).data;
       // puxa pra um tom quente/vivo pra refletir bonito
       this.avgColor.setRGB(
@@ -79,14 +128,22 @@ export class ScreenTexture {
         Math.min(1, (b / 255) * 1.05 + 0.08),
       );
     } catch {
-      /* imagem ainda não decodificada */
+      /* fonte ainda não decodificada */
     }
   }
 
-  private drawImageContain(img: HTMLImageElement, zoom: number, alpha: number) {
-    if (!img.complete || img.naturalWidth === 0) return;
+  private drawContain(
+    src: HTMLImageElement | HTMLVideoElement,
+    zoom: number,
+    alpha: number,
+  ) {
+    const isVideo = src instanceof HTMLVideoElement;
+    const sw = isVideo ? src.videoWidth : src.naturalWidth;
+    const sh = isVideo ? src.videoHeight : src.naturalHeight;
+    if (sw === 0 || sh === 0) return;
+    if (!isVideo && !(src as HTMLImageElement).complete) return;
     const { ctx, w, h } = this;
-    const ir = img.naturalWidth / img.naturalHeight;
+    const ir = sw / sh;
     const sr = w / h;
     let dw = w * zoom;
     let dh = h * zoom;
@@ -95,23 +152,58 @@ export class ScreenTexture {
     const dx = (w - dw) / 2;
     const dy = (h - dh) / 2;
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.drawImage(src, dx, dy, dw, dh);
     ctx.globalAlpha = 1;
   }
 
   update(now: number, dt: number, state: ScreenState) {
     const { ctx, w, h } = this;
 
-    // avança a "playlist" (troca de imagem = mudança de luz refletida)
-    if (this.nextAt === 0) this.nextAt = now + 2.4;
-    if (now >= this.nextAt && state.enter < 0.01) {
-      this.prevIdx = this.idx;
-      this.idx = (this.idx + 1) % Math.max(1, this.images.length);
-      this.fade = 0;
-      this.nextAt = now + 2.4;
-      this.computeAvg(this.images[this.idx]);
+    const curVideo = this.videos[this.vIdx];
+    const useVideo = this.videoReady(curVideo);
+
+    if (useVideo) {
+      // primeira vez com vídeo pronto: fade suave saindo do fallback
+      if (!this.vStarted) {
+        this.vStarted = true;
+        this.vFade = 0;
+      }
+      if (curVideo.paused && state.enter < 0.9) curVideo.play().catch(() => {});
+      // rotação da playlist de vídeos (só troca se o próximo já decodificou)
+      if (this.vNextAt === 0) this.vNextAt = now + ScreenTexture.SLOT;
+      if (now >= this.vNextAt && state.enter < 0.01 && this.videos.length > 1) {
+        const next = (this.vIdx + 1) % this.videos.length;
+        if (this.videoReady(this.videos[next])) {
+          this.vPrevIdx = this.vIdx;
+          this.vIdx = next;
+          this.vFade = 0;
+          this.videos[next].play().catch(() => {});
+        }
+        this.vNextAt = now + ScreenTexture.SLOT;
+      }
+      this.vFade = Math.min(1, this.vFade + dt * 1.6);
+      if (this.vFade >= 1 && this.vPrevIdx >= 0) {
+        // o anterior só pausa depois do crossfade (transição sempre viva)
+        this.videos[this.vPrevIdx]?.pause();
+        this.vPrevIdx = -1;
+      }
+      // cor média re-amostrada ao longo do vídeo (a luz acompanha a cena)
+      if (now >= this.avgAt) {
+        this.avgAt = now + 0.5;
+        this.computeAvg(curVideo);
+      }
+    } else {
+      // fallback: playlist de imagens enquanto os vídeos baixam
+      if (this.nextAt === 0) this.nextAt = now + 2.4;
+      if (now >= this.nextAt && state.enter < 0.01) {
+        this.prevIdx = this.idx;
+        this.idx = (this.idx + 1) % Math.max(1, this.images.length);
+        this.fade = 0;
+        this.nextAt = now + 2.4;
+        this.computeAvg(this.images[this.idx]);
+      }
+      this.fade = Math.min(1, this.fade + dt * 2.2);
     }
-    this.fade = Math.min(1, this.fade + dt * 2.2);
 
     // fora do vidro fica TRANSPARENTE — o plano pode ser grande o bastante
     // pra cobrir a tela toda enquanto os cantos arredondados "entram" na
@@ -135,12 +227,23 @@ export class ScreenTexture {
 
     // conteúdo (crossfade + leve "respiração" de zoom, como fita rodando)
     const breath = 1.02 + Math.sin(now * 0.8) * 0.015;
-    if (this.images[this.prevIdx] && this.fade < 1) {
-      this.drawImageContain(this.images[this.prevIdx], breath, 1 - this.fade);
-    }
-    if (this.images[this.idx]) {
-      const zoom = breath * (1 + state.enter * 0.9); // "entra" na tela ao clicar
-      this.drawImageContain(this.images[this.idx], zoom, this.fade);
+    const zoom = breath * (1 + state.enter * 0.9); // "entra" na tela ao clicar
+    if (useVideo) {
+      const prev = this.videos[this.vPrevIdx];
+      if (this.vFade < 1 && this.videoReady(prev)) {
+        this.drawContain(prev, breath, 1 - this.vFade);
+      } else if (this.vFade < 1 && this.images[this.idx]) {
+        // primeira entrada de vídeo: o fallback de imagem sai em fade
+        this.drawContain(this.images[this.idx], breath, 1 - this.vFade);
+      }
+      this.drawContain(curVideo, zoom, this.vFade);
+    } else {
+      if (this.images[this.prevIdx] && this.fade < 1) {
+        this.drawContain(this.images[this.prevIdx], breath, 1 - this.fade);
+      }
+      if (this.images[this.idx]) {
+        this.drawContain(this.images[this.idx], zoom, this.fade);
+      }
     }
 
     // aberração cromática sutil (desloca cópia vermelha/azul)
@@ -263,6 +366,12 @@ export class ScreenTexture {
 
   dispose() {
     this.texture.dispose();
+    for (const v of this.videos) {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    }
+    this.videos = [];
   }
 }
 

@@ -53,12 +53,9 @@ export function Cartola({ clip }: { clip: THREE.Plane[] }) {
       const mesh = obj as THREE.Mesh;
       if (!mesh.isMesh) return;
       mesh.renderOrder = 14;
-      const tris = (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) {
         const std = m as THREE.MeshStandardMaterial;
-        // eslint-disable-next-line no-console
-        console.log("[cartola]", mesh.name, "tris:", tris, "transparent:", std.transparent, "opacity:", std.opacity, "map:", !!std.map, "alphaMap:", !!std.alphaMap);
         m.clippingPlanes = clip;
         m.side = THREE.DoubleSide;
         m.opacity = 1;

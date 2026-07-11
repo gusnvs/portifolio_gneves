@@ -15,13 +15,19 @@ import { SECTION_START_VH } from "../config";
 // com a página e o computador já está lá quando o scroll chega
 const MODEL = "/landing/computador.glb";
 
-// placeholder da telinha — troque por vídeos/sprite-sheets depois
+// fallback instantâneo da telinha enquanto os vídeos baixam/decodificam
 const SCREEN_IMAGES = [
   "/snowmania/chars/cafe.webp",
   "/snowmania/chars/energetico.webp",
   "/snowmania/chars/boneco_de_neve.webp",
-  "/snowmania/poses/float.webp",
-  "/snowmania/poses/jump.webp",
+];
+
+// os vídeos reais da telinha — carregam preguiçosamente (warm()) quando o
+// usuário se aproxima da seção final, nunca competindo com o load da home
+const SCREEN_VIDEOS = [
+  "/videos/video_boneco.mp4",
+  "/videos/video_cafe.mp4",
+  "/videos/video_energetico.mp4",
 ];
 
 /** posição/tamanho do plano da tela em espaço local do modelo normalizado. */
@@ -67,8 +73,17 @@ function ComputerModel({
   const vLook = useMemo(() => new THREE.Vector3(), []);
   const vIdle = useMemo(() => new THREE.Vector3(), []);
 
-  const screen = useMemo(() => new ScreenTexture(SCREEN_IMAGES), []);
+  const screen = useMemo(
+    () => new ScreenTexture(SCREEN_IMAGES, SCREEN_VIDEOS),
+    [],
+  );
   useEffect(() => () => screen.dispose(), [screen]);
+
+  // fora da seção final os vídeos pausam (nada decodifica à toa)
+  useEffect(() => {
+    const runGate = SECTION_START_VH.night - 300;
+    return useMania.subscribe((s) => screen.setActive(s.scrollVh > runGate));
+  }, [screen]);
 
   // normaliza: centraliza na origem e escala pra uma altura contida
   const { modelScale, center } = useMemo(() => {
@@ -97,6 +112,10 @@ function ComputerModel({
     const t = state.clock.elapsedTime;
     const e = enter.current;
 
+    // 1º frame renderizado = usuário se aproximou (frameloop saiu de
+    // "never") → hora de baixar/decodificar os vídeos da telinha
+    screen.warm();
+
     // computador vive à direita (desktop) / centralizado (mobile). Posição
     // DIRETA (sem lerp) — senão ele "desliza" de tamanho/lugar no primeiro
     // segundo depois de montar
@@ -107,24 +126,51 @@ function ComputerModel({
     // hover suave
     const hv = (hoverV.current += ((hovered ? 1 : 0) - hoverV.current) * Math.min(dt * 8, 1));
 
-    // transição "entrar na tela" (mais lenta e cadenciada)
+    // transição "entrar na tela" — mergulho ORGÂNICO: antecipação, arco
+    // curvo, câmera na mão e roll (mesma filosofia do float do boneco:
+    // camadas de senos, nada linear/reto)
     let enterP = 0;
     if (e.phase === "entering") {
-      const DUR = 2.1;
+      const DUR = 2.35;
       e.t += dt;
       enterP = Math.min(1, e.t / DUR);
-      // glitch sobe e segura no fim (a tela escurece por baixo) — contido
-      e.glitch =
-        enterP < 0.4 ? enterP * 0.6 : Math.min(0.75, 0.24 + (enterP - 0.4) * 1.1);
-      // dolly acelera (easeIn) mergulhando até a posição REAL da tela no mundo
+      const p = enterP;
+      // intensidade da TV pulsa de leve (sinal instável, não rampa seca)
+      const tvBase = p < 0.4 ? p * 0.6 : Math.min(0.75, 0.24 + (p - 0.4) * 1.1);
+      e.glitch = tvBase * (0.85 + 0.15 * Math.sin(t * 9.3));
+
       if (screenMesh.current) screenMesh.current.getWorldPosition(vScreen);
-      const dive = enterP * enterP;
-      camera.position.lerpVectors(camHome, vScreen, dive * 0.94);
-      // olhar interpola do frontal (mesma direção do idle) até a tela —
-      // sem isso a câmera "salta" no início da transição
+
+      // progresso do mergulho: acelera em curva (easeIn com cauda cúbica)
+      const d = p * p * (0.55 + 0.45 * p);
+      const settle = 1 - d;
+      // antecipação: nos primeiros 30% a câmera RECUA um tico (respira)
+      const anticip = Math.sin((Math.min(p, 0.3) / 0.3) * Math.PI);
+
+      camera.position.lerpVectors(camHome, vScreen, d * 0.94);
+      // arco lateral/vertical que se fecha conforme chega (nunca linha reta)
+      const arc = Math.sin(p * Math.PI) * settle;
+      camera.position.x -= arc * 0.26;
+      camera.position.y += arc * 0.11 + anticip * 0.015;
+      camera.position.z += anticip * 0.2;
+      // "câmera na mão": tremidinha em camadas de senos, some ao aproximar
+      const hh = settle * 0.013;
+      camera.position.x += (Math.sin(t * 6.1) + Math.sin(t * 9.7 + 2) * 0.5) * hh;
+      camera.position.y += Math.sin(t * 7.3 + 1.2) * hh * 0.8;
+
+      // olhar desliza suave (smoothstep) do frontal até a tela
+      const lu0 = Math.min(1, p * 1.25);
+      const lu = lu0 * lu0 * (3 - 2 * lu0);
       vIdle.set(camHome.x, camHome.y, 0);
-      vLook.lerpVectors(vIdle, vScreen, Math.min(1, enterP * 1.35));
+      vLook.lerpVectors(vIdle, vScreen, lu);
+      // roll: banca na curva e assenta no fim (+ micro-oscilação)
+      const roll = Math.sin(p * Math.PI) * 0.055 + Math.sin(t * 5.3) * 0.008 * settle;
+      camera.up.set(Math.sin(roll), Math.cos(roll), 0);
       camera.lookAt(vLook);
+      // leve abertura de FOV no meio do voo (sensação de velocidade)
+      const cam = camera as THREE.PerspectiveCamera;
+      cam.fov = 34 + Math.sin(p * Math.PI) * 5;
+      cam.updateProjectionMatrix();
       // overlay preto entra só no finalzinho (a tela já escureceu antes)
       if (overlayRef.current) {
         overlayRef.current.style.opacity = String(
@@ -144,15 +190,22 @@ function ComputerModel({
       // mergulho anterior (ou HMR) pode deixar o enquadramento deslocado
       camera.position.copy(camHome);
       camera.quaternion.identity();
+      camera.up.set(0, 1, 0);
+      const cam = camera as THREE.PerspectiveCamera;
+      if (cam.fov !== 34) {
+        cam.fov = 34;
+        cam.updateProjectionMatrix();
+      }
     }
 
-    // giro sutil "vivo" quando parado (respira levemente)
+    // giro sutil "vivo" — no mergulho o balanço esmaece (não congela seco)
     const dbg = window as unknown as { __alignDebug?: boolean; __alignHide?: boolean };
     const debugging = dbg.__alignDebug || dbg.__alignHide;
-    if (spin.current && e.phase === "idle") {
+    if (spin.current) {
       // calibração exige pose congelada (o balanço mudaria entre as fotos)
-      spin.current.rotation.y = debugging ? -0.5 : -0.5 + Math.sin(t * 0.3) * 0.05;
-      spin.current.rotation.x = debugging ? 0 : Math.sin(t * 0.24 + 1) * 0.015;
+      const amp = debugging ? 0 : 1 - enterP;
+      spin.current.rotation.y = -0.5 + Math.sin(t * 0.3) * 0.05 * amp;
+      spin.current.rotation.x = Math.sin(t * 0.24 + 1) * 0.015 * amp;
     }
 
     // desenha a telinha
