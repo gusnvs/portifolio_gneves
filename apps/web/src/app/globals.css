@@ -868,13 +868,24 @@ body {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
 }
-/* overlay preto que cobre a troca pra /system (portal no body) */
-.retro-enter-overlay {
+/* a seta → cutuca pra direita em loop, apontando pro computador (mesma
+   ideia do arrow do "role para descobrir", mas na horizontal) */
+.retro-hint-arrow {
+  display: inline-block;
+  animation: retro-hint-point 1.3s ease-in-out infinite;
+}
+@keyframes retro-hint-point {
+  0% { transform: translateX(-2px); opacity: 0.5; }
+  40% { opacity: 1; }
+  70% { transform: translateX(9px); opacity: 1; }
+  100% { transform: translateX(-2px); opacity: 0.5; }
+}
+/* canvas do glitch de TV (perde o sinal) em tela cheia — portal no body,
+   acima da cena e abaixo do boot-reveal do /system */
+.retro-tv-glitch {
   position: fixed;
   inset: 0;
-  z-index: 200;
-  background: #050406;
-  opacity: 0;
+  z-index: 250;
   pointer-events: none;
 }
 /* clarão glitch de chegada no /system (terminal "renderizando") */

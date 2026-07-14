@@ -210,21 +210,44 @@ export function BioSection() {
 }
 
 export function NightSection() {
+  // texto surge quando o scroll chega na seção (plano escuro já cobrindo);
+  // é a ÚLTIMA seção — exitVh fica fora de alcance pra o texto NÃO sair
+  // enquanto o usuário fica ali pra clicar no computador. Só reseta (some
+  // animado) ao subir de volta pra fora da seção.
+  const phase = useRevealPhase(
+    SECTION_START_VH.night - 30,
+    SECTION_START_VH.night + 300,
+    SECTION_START_VH.night - 80,
+  );
+
   return (
     <section id="terminal" style={{ height: `${SECTION_VH.night}vh` }} className="relative">
       <div className="sticky top-0 h-screen overflow-hidden">
         {/* computador retrô 3D — preenche o lado direito (desktop) / fundo (mobile) */}
         <RetroComputer />
         {/* texto por cima, à esquerda; não bloqueia o clique no computador */}
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-6 px-[8vw]">
-          <h2 className="mania-title max-w-xl lowercase" style={{ color: "#f4ece0" }}>
-            quer ver o resto? entra no sistema!
-          </h2>
-          <p className="mania-copy max-w-md" style={{ color: "#cdc7bb" }}>
-            O portfólio completo vive num desktop retrô: projetos, jogos,
-            guestbook e um terminal de verdade.
-          </p>
-          <p className="retro-hint">clique no computador para entrar →</p>
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-center px-[8vw]">
+          <motion.div
+            className="flex flex-col gap-6"
+            initial="hidden"
+            animate={phase}
+          >
+            <h2 className="mania-title max-w-xl lowercase" style={{ color: "#f4ece0" }}>
+              <SplitWords text="quer ver o resto? entra no sistema!" variants={titleWord} />
+            </h2>
+            <p className="mania-copy max-w-md" style={{ color: "#cdc7bb" }}>
+              <SplitWords
+                text="O portfólio completo vive num desktop retrô: projetos, jogos, guestbook e um terminal de verdade."
+                variants={bodyWord}
+              />
+            </p>
+            <motion.p className="retro-hint" variants={bodyWord} custom={22}>
+              clique no computador para entrar{" "}
+              <span className="retro-hint-arrow" aria-hidden>
+                →
+              </span>
+            </motion.p>
+          </motion.div>
           {/* link acessível invisível — o CTA visual é o próprio computador */}
           <Link href="/system" className="sr-only pointer-events-auto">
             abrir o terminal
