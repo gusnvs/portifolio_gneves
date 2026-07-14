@@ -211,7 +211,7 @@ export class ScreenTexture {
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, w, h);
     ctx.save();
-    roundRect(ctx, 0, 0, w, h, Math.min(w, h) * 0.11);
+    roundRect(ctx, 0, 0, w, h, Math.min(w, h) * 0.04);
     ctx.clip();
 
     // fundo (fósforo âmbar bem escuro)
