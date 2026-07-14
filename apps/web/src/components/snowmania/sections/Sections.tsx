@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, type Variants } from "motion/react";
 import { SECTION_VH, SECTION_START_VH } from "../config";
@@ -92,6 +92,83 @@ function SplitWords({
   );
 }
 
+/* Título da intro: cada LETRA "estoura" como bolha (scale 0→1 com overshoot
+   de mola), em ORDEM ALEATÓRIA — nunca esquerda→direita, nunca a frase inteira
+   de uma vez — no estilo do ponpon-mania. Dispara quando o preloader solta
+   (`show`). Cada palavra é inline-block (nunca quebra no meio); o espaço entre
+   elas fica de fora, permitindo a quebra de linha natural. */
+const bubbleLetter: Variants = {
+  hidden: { opacity: 0, scale: 0, y: 8, transition: { duration: 0 } },
+  show: (delay: number) => ({
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { delay, type: "spring", stiffness: 460, damping: 14, mass: 0.7 },
+  }),
+};
+
+function BubbleTitle({
+  text,
+  show,
+  className,
+  style,
+}: {
+  text: string;
+  show: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const words = useMemo(() => text.split(" "), [text]);
+  // um atraso por letra, embaralhado (Fisher-Yates) → as letras surgem
+  // espalhadas pela frase, uma aqui outra ali, em vez de em sequência
+  const delays = useMemo(() => {
+    const total = words.reduce((n, w) => n + w.length, 0);
+    const order = Array.from({ length: total }, (_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    const d = new Array<number>(total);
+    order.forEach((letterIdx, pos) => {
+      d[letterIdx] = pos * 0.032 + Math.random() * 0.025;
+    });
+    return d;
+  }, [words]);
+
+  let k = 0;
+  return (
+    <motion.h1
+      className={className}
+      style={style}
+      aria-label={text}
+      initial="hidden"
+      animate={show ? "show" : "hidden"}
+    >
+      {words.map((word, wi) => {
+        const letters = word.split("").map((ch, ci) => (
+          <motion.span
+            key={ci}
+            custom={delays[k++]}
+            variants={bubbleLetter}
+            className="inline-block"
+            style={{ willChange: "transform" }}
+          >
+            {ch}
+          </motion.span>
+        ));
+        return (
+          <Fragment key={wi}>
+            <span aria-hidden className="inline-block">
+              {letters}
+            </span>
+            {wi < words.length - 1 ? " " : null}
+          </Fragment>
+        );
+      })}
+    </motion.h1>
+  );
+}
+
 /**
  * Camada DOM das 4 seções. Cada seção é um trilho alto com conteúdo
  * sticky centralizado — o canvas (z-20) passa por cima do texto (z-10).
@@ -99,17 +176,19 @@ function SplitWords({
  */
 
 export function IntroSection() {
+  // o título "estoura" letra a letra quando o preloader solta
+  const ready = useMania((s) => s.ready);
   return (
     <section id="intro" style={{ height: `${SECTION_VH.intro}vh` }} className="relative">
       {/* sem sticky: o título sobe e some no fluxo, os bonecos ficam.
           relative → o hint "role para descobrir" ancora NESTA primeira tela */}
       <div className="relative flex h-screen flex-col items-center justify-center px-6">
-        <h1
+        <BubbleTitle
+          text="o portfólio interativo de um dev que transforma café em código."
+          show={ready}
           className="mania-title mania-outline max-w-6xl text-center lowercase"
           style={{ color: "#161310", "--mania-outline-color": "#f5eddb" } as React.CSSProperties}
-        >
-          o portfólio interativo de um dev que transforma café em código.
-        </h1>
+        />
         <div
           className="mania-scroll-hint"
           style={{ color: "#161310", "--mania-outline-color": "#f5eddb" } as React.CSSProperties}
