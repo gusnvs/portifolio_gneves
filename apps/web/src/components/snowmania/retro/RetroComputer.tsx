@@ -37,13 +37,13 @@ const SCREEN_VIDEOS = [
  * (barril) ou pra dentro; bulge = abaulamento central em direção ao vidro.
  */
 const SCREEN = {
-  x: -0.016,
-  y: 0.275,
+  x: -0.024,
+  y: 0.267,
   z: 0.163,
   rx: -0.084,
   ry: 0.026,
-  w: 0.98,
-  h: 0.785,
+  w: 0.995,
+  h: 0.8,
   cTop: 0.084,
   cBottom: 0.06,
   cLeft: 0.06,
@@ -56,7 +56,7 @@ const SCREEN = {
  * x/y deslocam, scale multiplica o tamanho. Ajustável ao vivo via
  * window.__placeRig (mesma ideia do ajustador da tela).
  */
-const RIG = { x: 0.72, y: 0.18, scale: 1.2 };
+const RIG = { x: 0.72, y: 0.18, scale: 1.1 };
 
 function fmtRig(r: typeof RIG): string {
   return `{ x: ${r.x.toFixed(3)}, y: ${r.y.toFixed(3)}, scale: ${r.scale.toFixed(3)} }`;
