@@ -51,6 +51,17 @@ const SCREEN = {
   bulge: 0.0,
 };
 
+/**
+ * Posição/tamanho do CONJUNTO inteiro (computador + tela + luzes) na cena.
+ * x/y deslocam, scale multiplica o tamanho. Ajustável ao vivo via
+ * window.__placeRig (mesma ideia do ajustador da tela).
+ */
+const RIG = { x: 0.72, y: 0.18, scale: 1.2 };
+
+function fmtRig(r: typeof RIG): string {
+  return `{ x: ${r.x.toFixed(3)}, y: ${r.y.toFixed(3)}, scale: ${r.scale.toFixed(3)} }`;
+}
+
 /** formata a config da tela pronta pra colar de volta no SCREEN. */
 function fmtScreen(c: typeof SCREEN): string {
   return (
@@ -95,6 +106,7 @@ function ComputerModel({
   // config VIVA da tela (pos/ângulo/tamanho/curvatura) — ajustável no
   // navegador via teclado (window.__placeScreen = true), sem ferramenta externa
   const cfg = useRef({ ...SCREEN });
+  const rig = useRef({ ...RIG }); // posição/tamanho do conjunto inteiro
   const curveSel = useRef(0); // 0..4 = topo/baixo/esq/dir/bulge
   const curveDirty = useRef(true); // recalcula a malha curvada quando muda
   // malha subdividida (deformável) + posições planas de referência
@@ -147,7 +159,32 @@ function ComputerModel({
   // Shift=passo fino · P=imprime os números prontos pra colar
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (!(window as unknown as { __placeScreen?: boolean }).__placeScreen) return;
+      const w = window as unknown as { __placeScreen?: boolean; __placeRig?: boolean };
+
+      // MODO CONJUNTO (window.__placeRig = true): move/escala o computador todo
+      if (w.__placeRig) {
+        const r = rig.current;
+        const ff = ev.shiftKey ? 0.25 : 1;
+        const dpos = 0.02 * ff;
+        const dscale = 0.03 * ff;
+        const rmap: Record<string, () => void> = {
+          arrowleft: () => (r.x -= dpos),
+          arrowright: () => (r.x += dpos),
+          arrowup: () => (r.y += dpos),
+          arrowdown: () => (r.y -= dpos),
+          "+": () => (r.scale += dscale),
+          "=": () => (r.scale += dscale),
+          "-": () => (r.scale = Math.max(0.1, r.scale - dscale)),
+          p: () => console.log("RIG =", fmtRig(r)),
+        };
+        const rfn = rmap[ev.key] || rmap[ev.key.toLowerCase()];
+        if (!rfn) return;
+        ev.preventDefault();
+        rfn();
+        return;
+      }
+
+      if (!w.__placeScreen) return;
       const c = cfg.current;
       const f = ev.shiftKey ? 0.25 : 1;
       const dp = 0.008 * f;
@@ -230,6 +267,25 @@ function ComputerModel({
     };
   }, []);
 
+  // idem pro CONJUNTO: __rigPrint() imprime o RIG · __rigSet('scale', 1.2)
+  useEffect(() => {
+    const w = window as unknown as {
+      __rigPrint?: () => void;
+      __rigSet?: (key: keyof typeof RIG, value: number) => void;
+      __rigCfg?: typeof RIG;
+    };
+    w.__rigCfg = rig.current;
+    w.__rigPrint = () => console.log("RIG =", fmtRig(rig.current));
+    w.__rigSet = (key, value) => {
+      if (key in rig.current) (rig.current as Record<string, number>)[key] = value;
+    };
+    return () => {
+      delete w.__rigPrint;
+      delete w.__rigSet;
+      delete w.__rigCfg;
+    };
+  }, []);
+
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
     const e = enter.current;
@@ -280,11 +336,13 @@ function ComputerModel({
       rimLight.current.position.set(0, c.y * modelScale + 0.1, c.z * modelScale + 0.02);
     }
 
-    // computador vive à direita (desktop) / centralizado (mobile). Posição
-    // DIRETA (sem lerp) — senão ele "desliza" de tamanho/lugar no primeiro
-    // segundo depois de montar
-    if (root.current && e.phase === "idle") {
-      root.current.position.x = size.width <= 900 ? 0 : 0.5;
+    // posição/tamanho do CONJUNTO (à direita no desktop, centralizado no
+    // mobile). Aplicado todo frame a partir da config viva RIG — o mergulho
+    // move a CÂMERA, não o conjunto, então isso fica estável na transição
+    if (root.current) {
+      const rc = rig.current;
+      root.current.position.set(size.width <= 900 ? 0 : rc.x, rc.y, 0);
+      root.current.scale.setScalar(rc.scale);
     }
 
     // hover suave
