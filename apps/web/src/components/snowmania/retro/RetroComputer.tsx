@@ -30,16 +30,36 @@ const SCREEN_VIDEOS = [
   "/videos/video_energetico.mp4",
 ];
 
-/** posição/tamanho do plano da tela em espaço local do modelo normalizado. */
+/**
+ * Transformação da tela no espaço do modelo + curvatura por lado (pra
+ * conformar ao vidro abaulado do CRT). Valores cravados via ajustador ao
+ * vivo (window.__placeScreen). c* = quanto cada lado curva pra fora
+ * (barril) ou pra dentro; bulge = abaulamento central em direção ao vidro.
+ */
 const SCREEN = {
-  x: 0.152,
-  y: 0.265,
-  z: 0.475,
-  rx: -0.02,
-  ry: 0.0,
-  w: 1.32,
-  h: 0.95,
+  x: -0.016,
+  y: 0.275,
+  z: 0.163,
+  rx: -0.084,
+  ry: 0.026,
+  w: 0.965,
+  h: 0.77,
+  cTop: 0.084,
+  cBottom: 0.06,
+  cLeft: 0.06,
+  cRight: 0.036,
+  bulge: 0.0,
 };
+
+/** formata a config da tela pronta pra colar de volta no SCREEN. */
+function fmtScreen(c: typeof SCREEN): string {
+  return (
+    `{ x: ${c.x.toFixed(3)}, y: ${c.y.toFixed(3)}, z: ${c.z.toFixed(3)}, ` +
+    `rx: ${c.rx.toFixed(3)}, ry: ${c.ry.toFixed(3)}, w: ${c.w.toFixed(3)}, h: ${c.h.toFixed(3)}, ` +
+    `cTop: ${c.cTop.toFixed(3)}, cBottom: ${c.cBottom.toFixed(3)}, cLeft: ${c.cLeft.toFixed(3)}, ` +
+    `cRight: ${c.cRight.toFixed(3)}, bulge: ${c.bulge.toFixed(3)} }`
+  );
+}
 
 interface EnterState {
   phase: "idle" | "entering";
@@ -72,6 +92,18 @@ function ComputerModel({
   const vScreen = useMemo(() => new THREE.Vector3(), []);
   const vLook = useMemo(() => new THREE.Vector3(), []);
   const vIdle = useMemo(() => new THREE.Vector3(), []);
+  // config VIVA da tela (pos/ângulo/tamanho/curvatura) — ajustável no
+  // navegador via teclado (window.__placeScreen = true), sem ferramenta externa
+  const cfg = useRef({ ...SCREEN });
+  const curveSel = useRef(0); // 0..4 = topo/baixo/esq/dir/bulge
+  const curveDirty = useRef(true); // recalcula a malha curvada quando muda
+  // malha subdividida (deformável) + posições planas de referência
+  const screenGeo = useMemo(() => new THREE.PlaneGeometry(1, 1, 40, 30), []);
+  const basePos = useMemo(
+    () => Float32Array.from(screenGeo.attributes.position.array),
+    [screenGeo],
+  );
+  useEffect(() => () => screenGeo.dispose(), [screenGeo]);
 
   const screen = useMemo(
     () => new ScreenTexture(SCREEN_IMAGES, SCREEN_VIDEOS),
@@ -93,6 +125,7 @@ function ComputerModel({
     return { modelScale: 1.26 / Math.max(s.x, s.y, s.z), center: c };
   }, [scene]);
 
+
   useEffect(() => {
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -108,6 +141,95 @@ function ComputerModel({
     gl.domElement.style.cursor = hovered ? "pointer" : "auto";
   }, [hovered, gl]);
 
+  // MODO DE POSICIONAMENTO (window.__placeScreen = true): ajusta a tela ao
+  // vivo por teclado, vendo no ângulo real. setas=mover · w/s=profundidade ·
+  // a/d=girar horizontal · q/e=girar vertical · z/x=largura · c/v=altura ·
+  // Shift=passo fino · P=imprime os números prontos pra colar
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (!(window as unknown as { __placeScreen?: boolean }).__placeScreen) return;
+      const c = cfg.current;
+      const f = ev.shiftKey ? 0.25 : 1;
+      const dp = 0.008 * f;
+      const dr = 0.008 * f;
+      const ds = 0.015 * f;
+      const dc = 0.012 * f; // passo da curvatura
+      const curveKeys = ["cTop", "cBottom", "cLeft", "cRight", "bulge"] as const;
+      const k = ev.key.toLowerCase();
+      const map: Record<string, () => void> = {
+        arrowleft: () => (c.x -= dp),
+        arrowright: () => (c.x += dp),
+        arrowup: () => (c.y += dp),
+        arrowdown: () => (c.y -= dp),
+        w: () => (c.z += dp),
+        s: () => (c.z -= dp),
+        a: () => (c.ry -= dr),
+        d: () => (c.ry += dr),
+        q: () => (c.rx -= dr),
+        e: () => (c.rx += dr),
+        z: () => (c.w = Math.max(0.05, c.w - ds)),
+        x: () => (c.w += ds),
+        c: () => (c.h = Math.max(0.05, c.h - ds)),
+        v: () => (c.h += ds),
+        // seleção do lado a curvar (1..5) + ajuste com + / -
+        "1": () => console.log("curvar: TOPO (use + / -)"),
+        "2": () => console.log("curvar: BAIXO (use + / -)"),
+        "3": () => console.log("curvar: ESQUERDA (use + / -)"),
+        "4": () => console.log("curvar: DIREITA (use + / -)"),
+        "5": () => console.log("curvar: BULGE central (use + / -)"),
+        "+": () => {
+          c[curveKeys[curveSel.current]] += dc;
+          curveDirty.current = true;
+        },
+        "=": () => {
+          c[curveKeys[curveSel.current]] += dc;
+          curveDirty.current = true;
+        },
+        "-": () => {
+          c[curveKeys[curveSel.current]] -= dc;
+          curveDirty.current = true;
+        },
+        "0": () => {
+          c.cTop = c.cBottom = c.cLeft = c.cRight = c.bulge = 0;
+          curveDirty.current = true;
+        },
+        p: () => console.log("SCREEN =", fmtScreen(c)),
+      };
+      // 1..5 também selecionam o lado ativo
+      if (k >= "1" && k <= "5") curveSel.current = Number(k) - 1;
+      const fn = map[ev.key] || map[k];
+      if (!fn) return;
+      ev.preventDefault();
+      fn();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // funções chamáveis DIRETO no console (não dependem de foco na página):
+  //   __screenPrint()          → imprime o SCREEN pronto pra colar
+  //   __screenSet('bulge', .1) → ajusta um campo e redesenha
+  useEffect(() => {
+    const w = window as unknown as {
+      __screenPrint?: () => void;
+      __screenSet?: (key: keyof typeof SCREEN, value: number) => void;
+      __screenCfg?: typeof SCREEN;
+    };
+    w.__screenCfg = cfg.current;
+    w.__screenPrint = () => console.log("SCREEN =", fmtScreen(cfg.current));
+    w.__screenSet = (key, value) => {
+      if (key in cfg.current) {
+        (cfg.current as Record<string, number>)[key] = value;
+        curveDirty.current = true;
+      }
+    };
+    return () => {
+      delete w.__screenPrint;
+      delete w.__screenSet;
+      delete w.__screenCfg;
+    };
+  }, []);
+
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
     const e = enter.current;
@@ -115,6 +237,48 @@ function ComputerModel({
     // 1º frame renderizado = usuário se aproximou (frameloop saiu de
     // "never") → hora de baixar/decodificar os vídeos da telinha
     screen.warm();
+
+    // aplica a config viva da tela (posição/ângulo/tamanho) — permite o
+    // ajuste ao vivo por teclado; em uso normal só reflete o SCREEN cravado
+    const c = cfg.current;
+    if (screenMesh.current) {
+      screenMesh.current.position.set(c.x * modelScale, c.y * modelScale, c.z * modelScale);
+      screenMesh.current.rotation.set(c.rx, c.ry, 0);
+      // z escala junto (o abaulamento acompanha o tamanho do plano)
+      const zs = ((c.w + c.h) / 2) * modelScale;
+      screenMesh.current.scale.set(c.w * modelScale, c.h * modelScale, zs);
+    }
+
+    // (re)deforma a malha da tela quando a curvatura muda — cada lado curva
+    // pra fora/dentro (barril/almofada) + abaulamento central (glass do CRT)
+    if (curveDirty.current) {
+      curveDirty.current = false;
+      const posAttr = screenGeo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const bx = basePos[i * 3];
+        const by = basePos[i * 3 + 1];
+        const u = bx * 2; // [-1,1]
+        const v = by * 2;
+        let x = bx;
+        let y = by;
+        // bordas curvam de forma independente (máx no meio do lado, 0 nos cantos)
+        y += c.cTop * (1 - u * u) * Math.max(0, v);
+        y -= c.cBottom * (1 - u * u) * Math.max(0, -v);
+        x -= c.cLeft * (1 - v * v) * Math.max(0, -u);
+        x += c.cRight * (1 - v * v) * Math.max(0, u);
+        // domo central em direção ao vidro
+        const z = c.bulge * (1 - u * u) * (1 - v * v);
+        posAttr.setXYZ(i, x, y, z);
+      }
+      posAttr.needsUpdate = true;
+      screenGeo.computeVertexNormals();
+    }
+    if (screenLight.current) {
+      screenLight.current.position.set(0, c.y * modelScale, c.z * modelScale + 0.15);
+    }
+    if (rimLight.current) {
+      rimLight.current.position.set(0, c.y * modelScale + 0.1, c.z * modelScale + 0.02);
+    }
 
     // computador vive à direita (desktop) / centralizado (mobile). Posição
     // DIRETA (sem lerp) — senão ele "desliza" de tamanho/lugar no primeiro
@@ -199,8 +363,15 @@ function ComputerModel({
     }
 
     // giro sutil "vivo" — no mergulho o balanço esmaece (não congela seco)
-    const dbg = window as unknown as { __alignDebug?: boolean; __alignHide?: boolean };
-    const debugging = dbg.__alignDebug || dbg.__alignHide;
+    const dbg = window as unknown as {
+      __alignDebug?: boolean;
+      __alignHide?: boolean;
+      __placeScreen?: boolean;
+    };
+    // no modo de posicionamento a tela vira magenta chapado (limites claros
+    // contra o vidro) e a pose congela pra facilitar o encaixe
+    const showBounds = dbg.__alignDebug || dbg.__placeScreen;
+    const debugging = showBounds || dbg.__alignHide;
     if (spin.current) {
       // calibração exige pose congelada (o balanço mudaria entre as fotos)
       const amp = debugging ? 0 : 1 - enterP;
@@ -212,8 +383,8 @@ function ComputerModel({
     screen.update(t, dt, { hover: hv, enter: enterP, glitch: e.glitch });
     if (screenMesh.current) screenMesh.current.visible = !dbg.__alignHide;
     if (screenMat.current) {
-      if (dbg.__alignDebug) {
-        // DEBUG: magenta escuro (sem bloom) p/ medir o bbox do plano
+      if (showBounds) {
+        // magenta escuro (sem bloom) — mostra os limites exatos do plano
         if (screenMat.current.map) {
           screenMat.current.map = null;
           screenMat.current.needsUpdate = true;
@@ -269,38 +440,22 @@ function ComputerModel({
           }}
         />
 
-        {/* plano da tela — colado no vidro do CRT, com a textura viva */}
-        <mesh
-          ref={screenMesh}
-          position={[SCREEN.x * modelScale, SCREEN.y * modelScale, SCREEN.z * modelScale]}
-          rotation={[SCREEN.rx, SCREEN.ry, 0]}
-        >
-          <planeGeometry args={[SCREEN.w * modelScale, SCREEN.h * modelScale]} />
+        {/* tela — malha subdividida DEFORMÁVEL (curva por lado + abaulamento);
+            posição/ângulo/escala/curvatura vêm da config viva (cfg) no useFrame */}
+        <mesh ref={screenMesh} geometry={screenGeo}>
           <meshBasicMaterial
             ref={screenMat}
             map={screen.texture}
             toneMapped={false}
             transparent
+            side={THREE.DoubleSide}
           />
         </mesh>
 
-        {/* luz que vaza da tela e reflete no gabinete/teclado */}
-        <pointLight
-          ref={screenLight}
-          position={[0, SCREEN.y * modelScale, SCREEN.z * modelScale + 0.15]}
-          intensity={2.4}
-          distance={2.2}
-          decay={2}
-          color="#ffb46a"
-        />
-        <pointLight
-          ref={rimLight}
-          position={[0, SCREEN.y * modelScale + 0.1, SCREEN.z * modelScale + 0.02]}
-          intensity={1.1}
-          distance={1.1}
-          decay={2}
-          color="#ffb46a"
-        />
+        {/* luz que vaza da tela e reflete no gabinete/teclado (posição vem
+            do useFrame, seguindo a cfg) */}
+        <pointLight ref={screenLight} intensity={2.4} distance={2.2} decay={2} color="#ffb46a" />
+        <pointLight ref={rimLight} intensity={1.1} distance={1.1} decay={2} color="#ffb46a" />
       </group>
     </group>
   );
